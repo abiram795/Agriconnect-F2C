@@ -165,3 +165,15 @@ class AddressCreate(AddressBase):
 
 class AddressResponse(AddressBase):
     id: UUID
+
+class HubStockTransferCreate(BaseModel):
+    farmer_id: UUID
+    product_id: UUID
+    hub_id: str
+    product_name: str
+    quantity_sent: float
+    farmer_price: float
+
+class HubStockReceiptAction(BaseModel):
+    action: str # "CONFIRM" or "REJECT"
+    rejection_reason: Optional[str] = None

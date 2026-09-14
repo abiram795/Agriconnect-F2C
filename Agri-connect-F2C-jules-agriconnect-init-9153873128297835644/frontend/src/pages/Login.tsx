@@ -4,7 +4,7 @@ import { Leaf, Eye, EyeOff, User, Lock, Phone } from "lucide-react";
 import { getApiUrl } from "../config/api";
 
 interface LoginProps {
-  role: "farmer" | "consumer" | "delivery";
+  role: "farmer" | "consumer" | "delivery" | "hub";
   onLogin?: () => void;
 }
 
@@ -32,7 +32,7 @@ export default function Login({ role, onLogin }: LoginProps) {
       const res = await fetch(getApiUrl("/api/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: mobile, password, role })
+        body: JSON.stringify({ phone: mobile, password, role: role === "hub" ? "hub_worker" : role })
       });
       if (res.ok) {
         const user = await res.json();
@@ -43,6 +43,7 @@ export default function Login({ role, onLogin }: LoginProps) {
         if (role === "farmer") navigate("/farmer");
         else if (role === "consumer") navigate("/consumer");
         else if (role === "delivery") navigate("/delivery/dashboard");
+        else if (role === "hub") navigate("/hub/dashboard");
       } else {
         let errStr = "Invalid phone number or password.";
         try {
@@ -91,6 +92,28 @@ export default function Login({ role, onLogin }: LoginProps) {
           registerText: "Join our delivery network and start earning today.",
           registerLink: "/delivery-register",
           imageClass: "bg-blue-700", // placeholder for delivery image
+        };
+      case "hub":
+        return {
+          title: "AgriConnect City Hub",
+          subtitle: "Centralized Quality & Distribution",
+          description: "Inspect incoming farmer stock, manage city hub inventory, and ensure transparent distribution.",
+          formTitle: "Hub Worker Login",
+          formDesc: "Access hub operations, verify stock receipts, and monitor inventory.",
+          registerText: "Contact AgriConnect Admin for Hub Worker access credentials.",
+          registerLink: "#",
+          imageClass: "bg-emerald-900",
+        };
+      default:
+        return {
+          title: "AgriConnect F2C",
+          subtitle: "Direct Farm to Consumer Platform",
+          description: "Connecting local farmers directly with consumers and city hubs.",
+          formTitle: "User Login",
+          formDesc: "Log in to your AgriConnect account.",
+          registerText: "New to AgriConnect? Register today.",
+          registerLink: "/consumer-register",
+          imageClass: "bg-green-800",
         };
     }
   };

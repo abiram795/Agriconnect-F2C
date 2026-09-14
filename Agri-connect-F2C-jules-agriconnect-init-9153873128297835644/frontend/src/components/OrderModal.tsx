@@ -138,10 +138,18 @@ export default function OrderModal({ product, onClose, onSuccess }: OrderModalPr
     setError("");
 
     try {
-      const endpoint = isBulkRequest ? "/api/orders/bulk" : "/api/orders";
+      const isHub = (product as any).is_hub;
+      const endpoint = isHub ? "/api/orders/hub" : (isBulkRequest ? "/api/orders/bulk" : "/api/orders");
       
       let payload: any;
-      if (isBulkRequest) {
+      if (isHub) {
+        payload = {
+          hub_inventory_id: (product as any).hub_inventory_id || product.id,
+          consumer_id: consumerId,
+          quantity: quantity,
+          delivery_address: selectedAddress
+        };
+      } else if (isBulkRequest) {
         payload = {
           consumer_id: consumerId,
           farmer_id: product.farmer_id,

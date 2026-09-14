@@ -15,6 +15,7 @@ export default function ConsumerHome() {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [ratingFilter, setRatingFilter] = useState<string>("ALL");
   const [farmerRatings, setFarmerRatings] = useState<Record<string, { average_rating: number; total_reviews: number }>>({});
+  const [hubProducts, setHubProducts] = useState<any[]>([]);
 
   const [notifications, setNotifications] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
@@ -173,6 +174,15 @@ export default function ConsumerHome() {
         );
         
         setFarmerRatings(ratingsMap);
+      }
+
+      try {
+        const hRes = await fetch(getApiUrl('/api/hubs/all/inventory'));
+        if (hRes.ok) {
+          setHubProducts(await hRes.json());
+        }
+      } catch (e) {
+        console.error("Failed to fetch hub inventory", e);
       }
     } catch (err) {
       console.error(err);
@@ -414,10 +424,13 @@ export default function ConsumerHome() {
                 return (
                   <div key={p.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
                     <div className="h-48 bg-gray-100 relative flex items-center justify-center overflow-hidden">
-                      {p.image_url ? (
+                      {p.image_url && p.image_url.startsWith("http") && !p.image_url.includes("IVR Listing") ? (
                         <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
                       ) : (
-                        <ImageIcon className="w-12 h-12 text-gray-300" />
+                        <div className="flex flex-col items-center justify-center text-gray-500 p-2 text-center">
+                          <ImageIcon className="w-10 h-10 text-emerald-600 mb-1" />
+                          <span className="text-xs font-semibold text-gray-700">IVR Listing – Image Not Available</span>
+                        </div>
                       )}
                       <div className="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow">
                         Live Verified
@@ -459,6 +472,95 @@ export default function ConsumerHome() {
                   </div>
                 );
               })}
+          </div>
+        )}
+      </div>
+
+      {/* AgriConnect City Hub Inventory Section */}
+      <div className="mb-12">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-[#0B6B3A]" /> AgriConnect City Hub Inventory (Transparent Pricing)
+            </h2>
+            <p className="text-xs text-gray-500 mt-1">
+              Centralized city hub stock directly sourced from verified local farmers with full price transparency.
+            </p>
+          </div>
+          <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-full self-start md:self-auto">
+            Zero Hidden Margins
+          </span>
+        </div>
+
+        {hubProducts.length === 0 ? (
+          <div className="p-6 bg-gray-50 border border-gray-200 rounded-xl text-center text-gray-500 text-sm">
+            No City Hub inventory currently listed. Farmers can send stock from their dashboard!
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {hubProducts.map((item: any) => (
+              <div key={item.id} className="bg-white rounded-xl shadow-sm border border-emerald-200 overflow-hidden flex flex-col">
+                <div className="bg-gradient-to-r from-emerald-700 to-teal-800 p-4 text-white">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="text-[10px] uppercase tracking-wider font-extrabold bg-emerald-900/60 text-emerald-200 px-2 py-0.5 rounded">
+                        City Hub Produce
+                      </span>
+                      <h3 className="text-lg font-black mt-1">{item.product_name}</h3>
+                    </div>
+                    <span className="text-sm font-extrabold bg-white text-emerald-900 px-2.5 py-1 rounded-full shadow">
+                      ₹{item.hub_price}/{item.unit || "kg"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-emerald-100 mt-2 font-medium">Hub: {item.hubs?.name || item.hub_id || "Coimbatore Central Hub"}</p>
+                </div>
+
+                <div className="p-4 flex-1 flex flex-col space-y-3 text-xs">
+                  {/* Transparent Pricing Card */}
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 space-y-1">
+                    <p className="font-extrabold text-emerald-950 text-xs">Transparent Pricing Breakdown:</p>
+                    <div className="flex justify-between text-gray-700">
+                      <span>• Farmer Base Price:</span>
+                      <span className="font-bold text-gray-900">₹{item.farmer_price}/kg</span>
+                    </div>
+                    <div className="flex justify-between text-gray-700">
+                      <span>• Operating & Cold Chain Fee:</span>
+                      <span className="font-bold text-gray-900">₹{item.operating_cost_component || 8.00}/kg</span>
+                    </div>
+                    <div className="flex justify-between pt-1 border-t border-emerald-200 font-extrabold text-emerald-900 text-sm">
+                      <span>= Total Consumer Price:</span>
+                      <span>₹{item.hub_price}/kg</span>
+                    </div>
+                  </div>
+
+                  <div className="text-gray-600 space-y-1">
+                    <p className="flex items-center gap-1 font-semibold text-gray-800">
+                      <Users className="w-3.5 h-3.5 text-emerald-700" />
+                      Sourced From: {item.users?.name || "Verified Local Farmer"}
+                    </p>
+                    <p className="text-gray-500">Stock Remaining at Hub: <span className="font-bold text-emerald-800">{item.quantity_remaining} kg</span></p>
+                  </div>
+
+                  <button
+                    onClick={() => setSelectedProduct({
+                      id: item.id,
+                      name: `${item.product_name} (City Hub)`,
+                      price: item.hub_price,
+                      unit: item.unit || "kg",
+                      quantity_available: item.quantity_remaining,
+                      farmer_id: item.farmer_id,
+                      delivery_preference: "Delivery Partner, Self Pickup",
+                      is_hub: true,
+                      hub_inventory_id: item.id,
+                      farmers: { users: { name: item.users?.name || "Hub Farmer", phone: item.users?.phone || "" } }
+                    })}
+                    className="w-full mt-auto py-2.5 bg-[#0B6B3A] hover:bg-[#2E8B57] text-white font-bold rounded-lg transition-colors shadow-sm"
+                  >
+                    Buy from Hub
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

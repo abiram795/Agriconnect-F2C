@@ -29,6 +29,12 @@ export default function Landing() {
             <p className="text-gray-600">Deliver fresh produce locally and earn on every delivery.</p>
           </Link>
         </div>
+
+        <div className="mt-8 pt-4 border-t border-gray-200 flex justify-center gap-6">
+          <Link to="/hub-login" className="text-[#0B6B3A] hover:underline font-semibold text-sm">
+            AgriConnect City Hub Worker Login
+          </Link>
+        </div>
       </div>
     </div>
   );

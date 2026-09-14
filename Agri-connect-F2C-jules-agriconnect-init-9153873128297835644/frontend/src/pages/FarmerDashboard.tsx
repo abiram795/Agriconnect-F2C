@@ -1,4 +1,4 @@
-import { Package, TrendingUp, Plus, ShieldCheck, CheckCircle, AlertTriangle, User, Users, ArrowLeft, History, Bell, MapPin, DollarSign, Activity, Navigation, Truck, Star } from "lucide-react";
+import { Package, TrendingUp, Plus, ShieldCheck, CheckCircle, AlertTriangle, User, Users, ArrowLeft, Bell, MapPin, DollarSign, Activity, Navigation, Truck, Star, X } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { getApiUrl } from "../config/api";
@@ -22,6 +22,16 @@ export default function FarmerDashboard() {
   const [isNavigating, setIsNavigating] = useState(false);
   const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
   const [otpError, setOtpError] = useState<string>("");
+
+  const [showHubModal, setShowHubModal] = useState(false);
+  const [hubStockData, setHubStockData] = useState<any>({ transfers: [], inventory: [], summary: {} });
+  const [selectedHubProductId, setSelectedHubProductId] = useState("");
+  const [hubTransferQty, setHubTransferQty] = useState("");
+  const [selectedCityHub, setSelectedCityHub] = useState("HUB-CBE-01");
+  const [isSubmittingHubTransfer, setIsSubmittingHubTransfer] = useState(false);
+  const [hubTransferMessage, setHubTransferMessage] = useState("");
+  const [profileTab, setProfileTab] = useState<"profile" | "farm" | "verification" | "selling" | "delivery" | "account">("profile");
+  const [showReVerificationNotice, setShowReVerificationNotice] = useState(false);
 
   useEffect(() => {
     if (location.state && location.state.message) {
@@ -79,6 +89,11 @@ export default function FarmerDashboard() {
       if (bRes.ok) {
         const bData = await bRes.json();
         setBulkRequests(bData);
+      }
+
+      const hRes = await fetch(getApiUrl(`/api/hubs/farmer/${userId}/stock`));
+      if (hRes.ok) {
+        setHubStockData(await hRes.json());
       }
     } catch (err) {
       console.error("Failed to fetch data", err);
@@ -139,7 +154,6 @@ export default function FarmerDashboard() {
   const status = farmerData?.verification_status || 'Pending';
   
   const currentProduce = products.filter(p => p.status === 'Available');
-  const produceHistory = products.filter(p => p.status !== 'Available');
   const farmerName = farmerData?.users?.name || "Farmer";
 
   // Calculations for Sales Overview
@@ -186,91 +200,341 @@ export default function FarmerDashboard() {
     }
   };
 
+  const handleSendToHubSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const userId = localStorage.getItem('agriconnect_user_id');
+    if (!userId || !selectedHubProductId || !hubTransferQty) return;
+
+    const targetProd = products.find(p => p.id === selectedHubProductId);
+    if (!targetProd) return;
+
+    setIsSubmittingHubTransfer(true);
+    try {
+      const res = await fetch(getApiUrl('/api/hubs/transfers'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          farmer_id: userId,
+          product_id: selectedHubProductId,
+          hub_id: selectedCityHub,
+          product_name: targetProd.name,
+          quantity_sent: parseFloat(hubTransferQty),
+          farmer_price: targetProd.price
+        })
+      });
+      if (res.ok) {
+        setHubTransferMessage(`Successfully submitted ${hubTransferQty} kg of ${targetProd.name} to ${selectedCityHub}! Awaiting Hub receipt verification.`);
+        setShowHubModal(false);
+        setHubTransferQty("");
+        fetchData();
+        setTimeout(() => setHubTransferMessage(""), 6000);
+      } else {
+        const errData = await res.json();
+        alert(errData.detail || "Failed to submit Hub transfer");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error submitting Hub transfer");
+    } finally {
+      setIsSubmittingHubTransfer(false);
+    }
+  };
+
   if (showProfile) {
+    const activeProducts = products.filter(p => p.status === 'Available' || p.status === 'Pending Verification');
+    const transfers = hubStockData.transfers || [];
+    const summary = hubStockData.summary || {};
+
     return (
       <div className="min-h-screen bg-background p-4 md:p-8">
-        <button onClick={() => setShowProfile(false)} className="mb-6 flex items-center text-primary hover:underline font-medium">
-          <ArrowLeft className="w-4 h-4 mr-1" /> Back to Dashboard
+        <button onClick={() => setShowProfile(false)} className="mb-6 flex items-center text-primary hover:underline font-bold text-base">
+          <ArrowLeft className="w-5 h-5 mr-1" /> Back to Dashboard
         </button>
         
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="p-4 bg-green-100 rounded-full text-primary">
-              <User className="w-8 h-8" />
+        {/* Profile Top Summary Banner */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-gray-100">
+            <div className="flex items-center gap-4">
+              <div className="p-4 bg-emerald-100 rounded-full text-[#0B6B3A]">
+                <User className="w-9 h-9" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-black text-gray-900">{farmerName}</h1>
+                <p className="text-sm font-semibold text-gray-500">{farmerData?.village}, {farmerData?.district}, {farmerData?.state}</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800">{farmerName}</h1>
-              <p className="text-gray-500">{farmerData?.village}, {farmerData?.district}</p>
+            <div className="flex items-center gap-3">
+              <span className="px-3.5 py-1.5 bg-emerald-100 text-emerald-800 rounded-full text-sm font-bold flex items-center">
+                <ShieldCheck className="w-4 h-4 mr-1.5 text-emerald-600"/> {farmerData?.verification_status || status}
+              </span>
             </div>
-            <span className="ml-auto px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-bold flex items-center">
-              <ShieldCheck className="w-4 h-4 mr-1"/> {farmerData?.verification_status}
-            </span>
           </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div><span className="text-gray-500 block">Phone</span><span className="font-semibold">{farmerData?.users?.phone}</span></div>
-            <div><span className="text-gray-500 block">Land Area</span><span className="font-semibold">{farmerData?.land_area}</span></div>
-            <div><span className="text-gray-500 block">Acreage</span><span className="font-semibold">{farmerData?.acreage} acres</span></div>
-            <div><span className="text-gray-500 block">Ownership</span><span className="font-semibold">{farmerData?.ownership_status}</span></div>
+
+          {/* Profile Section Navigation Tabs */}
+          <div className="flex flex-wrap gap-2 pt-4">
+            <button
+              onClick={() => setProfileTab("profile")}
+              className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors ${profileTab === "profile" ? "bg-[#0B6B3A] text-white shadow" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+            >
+              MY PROFILE
+            </button>
+            <button
+              onClick={() => setProfileTab("farm")}
+              className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors ${profileTab === "farm" ? "bg-[#0B6B3A] text-white shadow" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+            >
+              FARM DETAILS
+            </button>
+            <button
+              onClick={() => setProfileTab("verification")}
+              className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors ${profileTab === "verification" ? "bg-[#0B6B3A] text-white shadow" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+            >
+              VERIFICATION
+            </button>
+            <button
+              onClick={() => setProfileTab("selling")}
+              className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors ${profileTab === "selling" ? "bg-[#0B6B3A] text-white shadow" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+            >
+              MY SELLING & HUB STOCK
+            </button>
+            <button
+              onClick={() => setProfileTab("delivery")}
+              className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors ${profileTab === "delivery" ? "bg-[#0B6B3A] text-white shadow" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+            >
+              DELIVERY
+            </button>
+            <button
+              onClick={() => setProfileTab("account")}
+              className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors ${profileTab === "account" ? "bg-[#0B6B3A] text-white shadow" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+            >
+              ACCOUNT
+            </button>
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="bg-gray-50 p-4 border-b border-gray-100 flex items-center">
-              <Package className="w-5 h-5 mr-2 text-primary" />
-              <h2 className="text-lg font-bold text-gray-800">Currently Listed Produce</h2>
+        {/* TAB 1: MY PROFILE */}
+        {profileTab === "profile" && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <User className="w-5 h-5 text-[#0B6B3A]" /> My Profile Details
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm bg-gray-50 p-5 rounded-xl border border-gray-200">
+              <div><span className="text-gray-500 block text-xs">Full Name</span><span className="font-extrabold text-base text-gray-900">{farmerName}</span></div>
+              <div><span className="text-gray-500 block text-xs">Mobile Number</span><span className="font-extrabold text-base text-gray-900">{farmerData?.users?.phone}</span></div>
+              <div><span className="text-gray-500 block text-xs">Preferred Language</span><span className="font-extrabold text-base text-gray-900">{farmerData?.languages || "Tamil, English"}</span></div>
             </div>
-            {currentProduce.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <p>No vegetables currently listed.</p>
-              </div>
-            ) : (
-              <ul className="divide-y divide-gray-100">
-                {currentProduce.map(p => (
-                  <li key={p.id} className="p-4 flex justify-between items-center hover:bg-gray-50">
-                    <div>
-                      <p className="font-bold text-gray-800">{p.name}</p>
-                      <p className="text-sm text-gray-500">Listed: {new Date(p.created_at).toLocaleDateString()}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-primary">₹{p.price}/{p.unit}</p>
-                      <p className="text-sm text-gray-600">{p.quantity_available} {p.unit} <span className="text-green-600 font-semibold ml-2">• {p.status}</span></p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
+        )}
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="bg-gray-50 p-4 border-b border-gray-100 flex items-center">
-              <History className="w-5 h-5 mr-2 text-gray-600" />
-              <h2 className="text-lg font-bold text-gray-800">Produce History</h2>
+        {/* TAB 2: FARM DETAILS */}
+        {profileTab === "farm" && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-[#0B6B3A]" /> Farm & Land Details
+              </h2>
+              <button
+                onClick={() => setShowReVerificationNotice(true)}
+                className="bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100"
+              >
+                Edit Verified Land Information
+              </button>
             </div>
-            {produceHistory.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <p>No produce history available.</p>
+
+            {showReVerificationNotice && (
+              <div className="bg-amber-100 border border-amber-400 text-amber-900 p-4 rounded-xl text-sm font-semibold space-y-2">
+                <p className="font-bold flex items-center gap-1.5 text-amber-950">
+                  <AlertTriangle className="w-5 h-5 text-amber-700" /> Admin Re-Verification Required
+                </p>
+                <p>Verified land area, acreage, and ownership records cannot be silently changed after approval. Submitting changes will require Admin re-verification.</p>
+                <button
+                  onClick={() => setShowReVerificationNotice(false)}
+                  className="bg-amber-800 text-white px-3 py-1 rounded text-xs font-bold"
+                >
+                  Got it
+                </button>
               </div>
-            ) : (
-              <ul className="divide-y divide-gray-100">
-                {produceHistory.map(p => (
-                  <li key={p.id} className="p-4 flex justify-between items-center hover:bg-gray-50">
-                    <div>
-                      <p className="font-bold text-gray-800">{p.name}</p>
-                      <p className="text-sm text-gray-500">Listed: {new Date(p.created_at).toLocaleDateString()}</p>
-                      {p.completed_at && <p className="text-xs text-gray-400">Ended: {new Date(p.completed_at).toLocaleDateString()}</p>}
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-gray-600">₹{p.price}/{p.unit}</p>
-                      <p className="text-sm text-gray-500">{p.quantity_available} {p.unit} <span className="text-gray-400 font-semibold ml-2">• {p.status}</span></p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
             )}
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm bg-gray-50 p-5 rounded-xl border border-gray-200">
+              <div><span className="text-gray-500 block text-xs">Total Land Area</span><span className="font-bold text-gray-900">{farmerData?.land_area || "N/A"}</span></div>
+              <div><span className="text-gray-500 block text-xs">Acreage</span><span className="font-bold text-gray-900">{farmerData?.acreage || 0} acres</span></div>
+              <div><span className="text-gray-500 block text-xs">Ownership Status</span><span className="font-bold text-gray-900">{farmerData?.ownership_status || "Owned"}</span></div>
+              <div><span className="text-gray-500 block text-xs">Document Type</span><span className="font-bold text-gray-900">{farmerData?.document_type || "Patta / Chitta"}</span></div>
+              <div><span className="text-gray-500 block text-xs">Village / Town</span><span className="font-bold text-gray-900">{farmerData?.village || "N/A"}</span></div>
+              <div><span className="text-gray-500 block text-xs">District</span><span className="font-bold text-gray-900">{farmerData?.district || "N/A"}</span></div>
+              <div><span className="text-gray-500 block text-xs">State</span><span className="font-bold text-gray-900">{farmerData?.state || "Tamil Nadu"}</span></div>
+              <div><span className="text-gray-500 block text-xs">Farm Size Category</span><span className="font-bold text-gray-900">{farmerData?.farm_size || "Small Farmer"}</span></div>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* TAB 3: VERIFICATION */}
+        {profileTab === "verification" && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-[#0B6B3A]" /> Farmer Account Verification Status
+            </h2>
+            <div className="p-5 rounded-xl border border-emerald-200 bg-emerald-50/50 space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-semibold text-gray-700">Verification Status:</span>
+                <span className="px-3 py-1 bg-emerald-600 text-white font-extrabold text-xs rounded-full">{farmerData?.verification_status || status}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-600">Land Document Status:</span>
+                <span className="font-bold text-gray-900">{farmerData?.document_path ? "Uploaded & Verified" : "Verified by Admin"}</span>
+              </div>
+              {farmerData?.admin_remarks && (
+                <div className="pt-2 border-t border-emerald-200 text-xs">
+                  <span className="font-bold text-emerald-900">Admin Remarks: </span>
+                  <span className="text-emerald-800">{farmerData.admin_remarks}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: MY SELLING & HUB STOCK */}
+        {profileTab === "selling" && (
+          <div className="space-y-6">
+            {/* Hub Stock Summary */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <Package className="w-5 h-5 text-[#0B6B3A]" /> AgriConnect City Hub Stock & Sales Summary
+                </h2>
+                <button
+                  onClick={() => setShowHubModal(true)}
+                  className="bg-[#0B6B3A] hover:bg-[#2E8B57] text-white text-sm font-bold px-4 py-2 rounded-xl shadow transition"
+                >
+                  + Send Produce to Hub
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                  <span className="text-xs text-gray-500 font-semibold block">Total Sent to Hub</span>
+                  <span className="text-2xl font-extrabold text-gray-900">{summary.total_sent_kg || 0} kg</span>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                  <span className="text-xs text-gray-500 font-semibold block">Confirmed Received</span>
+                  <span className="text-2xl font-extrabold text-emerald-700">{summary.total_received_kg || 0} kg</span>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                  <span className="text-xs text-gray-500 font-semibold block">Total Sold at Hub</span>
+                  <span className="text-2xl font-extrabold text-blue-600">{summary.total_sold_kg || 0} kg</span>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                  <span className="text-xs text-gray-500 font-semibold block">Hub Earnings</span>
+                  <span className="text-2xl font-extrabold text-[#0B6B3A]">₹{summary.total_hub_earnings || 0}</span>
+                </div>
+              </div>
+
+              {transfers.length > 0 && (
+                <div className="overflow-x-auto">
+                  <h3 className="font-bold text-sm text-gray-700 mb-2">Products Sent to Hub</h3>
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-gray-100 text-gray-600 font-bold uppercase">
+                        <th className="p-2">Item</th>
+                        <th className="p-2">Hub</th>
+                        <th className="p-2">Qty Sent</th>
+                        <th className="p-2">Farmer Price</th>
+                        <th className="p-2">Hub Price</th>
+                        <th className="p-2">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {transfers.map((t: any) => (
+                        <tr key={t.id}>
+                          <td className="p-2 font-bold">{t.product_name}</td>
+                          <td className="p-2 font-semibold text-emerald-800">{t.hub_id}</td>
+                          <td className="p-2 font-bold">{t.quantity_sent} kg</td>
+                          <td className="p-2">₹{t.farmer_price}/kg</td>
+                          <td className="p-2 font-bold text-emerald-700">₹{t.hub_price}/kg</td>
+                          <td className="p-2">
+                            <span className={`px-2 py-0.5 rounded font-bold ${
+                              t.status === 'Confirmed Received' ? 'bg-emerald-100 text-emerald-800' :
+                              t.status === 'Rejected' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
+                            }`}>
+                              {t.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Direct Produce Listings */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-lg font-bold text-gray-800 mb-4">Direct Marketplace Produce Listings</h2>
+              {activeProducts.length === 0 ? (
+                <p className="text-gray-500 text-sm">No direct produce currently listed.</p>
+              ) : (
+                <ul className="divide-y divide-gray-100">
+                  {activeProducts.map(p => (
+                    <li key={p.id} className="py-3 flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-gray-900">{p.name}</p>
+                        <p className="text-xs text-gray-500">Listed: {new Date(p.created_at).toLocaleDateString()}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-emerald-700">₹{p.price}/{p.unit}</p>
+                        <p className="text-xs text-gray-600">{p.quantity_available} {p.unit} available</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: DELIVERY */}
+        {profileTab === "delivery" && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Truck className="w-5 h-5 text-[#0B6B3A]" /> Delivery Method Preferences
+            </h2>
+            <div className="space-y-3 bg-gray-50 p-5 rounded-xl border border-gray-200 text-sm">
+              <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                <span className="font-bold text-gray-800">1. Self Pickup by Consumer</span>
+                <span className="text-xs font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full">Supported</span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                <span className="font-bold text-gray-800">2. AgriConnect City Hub Delivery</span>
+                <span className="text-xs font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full">Supported</span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                <span className="font-bold text-gray-800">3. Verified Local Delivery Partner</span>
+                <span className="text-xs font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full">Supported</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 6: ACCOUNT */}
+        {profileTab === "account" && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
+            <h2 className="text-xl font-bold text-gray-900">Account Settings</h2>
+            <div className="flex flex-col gap-3 max-w-md">
+              <button onClick={() => alert("Notification preferences updated.")} className="w-full text-left p-3 border rounded-xl font-semibold hover:bg-gray-50 text-sm">
+                Notifications Preferences
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.clear();
+                  window.location.href = "/";
+                }}
+                className="w-full text-left p-3 border border-red-200 bg-red-50 text-red-700 rounded-xl font-bold text-sm hover:bg-red-100"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -322,6 +586,13 @@ export default function FarmerDashboard() {
         <div className="mb-6 bg-green-50 border border-green-200 text-green-800 p-4 rounded-xl flex items-center shadow-sm">
            <CheckCircle className="w-5 h-5 mr-2" />
            {successMessage}
+        </div>
+      )}
+
+      {hubTransferMessage && (
+        <div className="mb-6 bg-emerald-50 border border-emerald-300 text-emerald-900 p-4 rounded-xl flex items-center shadow-sm font-semibold">
+           <CheckCircle className="w-5 h-5 mr-2 text-emerald-600" />
+           {hubTransferMessage}
         </div>
       )}
 
@@ -761,6 +1032,81 @@ export default function FarmerDashboard() {
            </div>
          </div>
       </div>
+
+      {/* Send to Hub Modal */}
+      {showHubModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl relative">
+            <button onClick={() => setShowHubModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-800">
+              <X className="w-6 h-6" />
+            </button>
+            <h2 className="text-xl font-bold text-gray-900 mb-1 flex items-center gap-2">
+              <Package className="w-6 h-6 text-[#0B6B3A]" /> Send Produce to City Hub
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">Transfer verified produce to AgriConnect City Hub for centralized distribution.</p>
+
+            <form onSubmit={handleSendToHubSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Select Produce from Inventory</label>
+                <select 
+                  value={selectedHubProductId} 
+                  onChange={(e) => setSelectedHubProductId(e.target.value)}
+                  className="w-full p-2.5 border border-gray-300 rounded-lg text-sm"
+                  required
+                >
+                  <option value="">-- Choose Produce --</option>
+                  {products.map(p => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.quantity_available} {p.unit} available @ ₹{p.price}/{p.unit})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Target AgriConnect City Hub</label>
+                <select 
+                  value={selectedCityHub} 
+                  onChange={(e) => setSelectedCityHub(e.target.value)}
+                  className="w-full p-2.5 border border-gray-300 rounded-lg text-sm"
+                >
+                  <option value="HUB-CBE-01">AgriConnect Coimbatore Central Hub (HUB-CBE-01)</option>
+                  <option value="HUB-CHN-01">AgriConnect Chennai Metro Hub (HUB-CHN-01)</option>
+                  <option value="HUB-MDU-01">AgriConnect Madurai Hub (HUB-MDU-01)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Quantity to Transfer (kg)</label>
+                <input 
+                  type="number"
+                  step="0.5"
+                  min="1"
+                  value={hubTransferQty}
+                  onChange={(e) => setHubTransferQty(e.target.value)}
+                  placeholder="Enter kg..."
+                  className="w-full p-2.5 border border-gray-300 rounded-lg text-sm"
+                  required
+                />
+              </div>
+
+              <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-lg text-xs text-emerald-900 space-y-1">
+                <p className="font-bold">Transparent Pricing Breakdown</p>
+                <p>• Your Farmer Price: ₹{products.find(p => p.id === selectedHubProductId)?.price || 0}/kg</p>
+                <p>• Hub Operating Fee: ₹8.00/kg (Storage + Cold Chain + Logistics)</p>
+                <p className="font-extrabold text-emerald-800">
+                  • Consumer Price at Hub: ₹{((products.find(p => p.id === selectedHubProductId)?.price || 0) + 8).toFixed(2)}/kg
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowHubModal(false)} className="flex-1 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium text-sm">Cancel</button>
+                <button type="submit" disabled={isSubmittingHubTransfer} className="flex-1 py-2.5 bg-[#0B6B3A] hover:bg-[#2E8B57] text-white rounded-lg font-bold text-sm disabled:opacity-50 transition-colors">
+                  {isSubmittingHubTransfer ? "Submitting..." : "Send Stock to Hub"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
     </div>
   );
