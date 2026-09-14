@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Leaf, Eye, EyeOff, User, Lock, Phone } from "lucide-react";
+import { getApiUrl } from "../config/api";
 
 interface LoginProps {
   role: "farmer" | "consumer" | "delivery";
@@ -28,7 +29,7 @@ export default function Login({ role, onLogin }: LoginProps) {
     }
 
     try {
-      const res = await fetch("/api/login", {
+      const res = await fetch(getApiUrl("/api/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: mobile, password, role })

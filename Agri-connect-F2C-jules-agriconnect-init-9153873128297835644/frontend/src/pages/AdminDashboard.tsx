@@ -1,6 +1,7 @@
 import { ShieldCheck, Users, FileWarning, Search, Eye, ArrowLeft, Package, History, Check, X, Truck, Navigation } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "../config/supabase";
+import { getApiUrl } from "../config/api";
 
 export default function AdminDashboard() {
   const [session, setSession] = useState<any>(null);
@@ -41,7 +42,7 @@ export default function AdminDashboard() {
 
   const fetchLogisticsOverview = async () => {
     try {
-      const res = await fetch('/api/logistics/overview');
+      const res = await fetch(getApiUrl('/api/logistics/overview'));
       if (res.ok) setLogisticsOverview(await res.json());
     } catch (e) {
       console.error("Failed to fetch logistics overview", e);
@@ -59,7 +60,7 @@ export default function AdminDashboard() {
   const fetchFarmers = async () => {
     setApiError("");
     try {
-      const res = await fetch('/api/admin/farmers', {
+      const res = await fetch(getApiUrl('/api/admin/farmers'), {
         headers: { 'Authorization': `Bearer ${session.access_token}` }
       });
       if (res.ok) {
@@ -85,7 +86,7 @@ export default function AdminDashboard() {
     }
 
     try {
-      const res = await fetch(`/api/admin/farmers/${farmerId}/verify`, {
+      const res = await fetch(getApiUrl(`/api/admin/farmers/${farmerId}/verify`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -106,7 +107,7 @@ export default function AdminDashboard() {
 
   const viewDocument = async (farmerId: string) => {
     try {
-      const res = await fetch(`/api/admin/farmers/${farmerId}/document`, {
+      const res = await fetch(getApiUrl(`/api/admin/farmers/${farmerId}/document`), {
         headers: { 'Authorization': `Bearer ${session.access_token}` }
       });
       if (res.ok) {
@@ -124,7 +125,7 @@ export default function AdminDashboard() {
     setSelectedFarmer(farmer);
     setFarmerProducts([]); // Clear old products
     try {
-      const res = await fetch(`/api/farmers/${farmer.user_id}/products`);
+      const res = await fetch(getApiUrl(`/api/farmers/${farmer.user_id}/products`));
       if (res.ok) {
         const data = await res.json();
         setFarmerProducts(data);

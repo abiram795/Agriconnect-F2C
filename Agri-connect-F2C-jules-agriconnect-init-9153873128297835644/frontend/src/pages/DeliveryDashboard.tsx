@@ -1,6 +1,7 @@
 import { Truck, MapPin, Menu, Navigation, Package, Star, ShieldCheck, User, FileText, X, Check, Upload } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { getApiUrl } from "../config/api";
 
 export default function DeliveryDashboard() {
   const [activeDelivery, setActiveDelivery] = useState<any>(null);
@@ -47,11 +48,11 @@ export default function DeliveryDashboard() {
     setIsLoading(true);
     try {
       const [availRes, activeRes, earnRes, profRes, revRes] = await Promise.all([
-        fetch("/api/orders/available-deliveries"),
-        fetch(`/api/deliveries/partner/${partnerId}`),
-        fetch(`/api/delivery/earnings/${partnerId}`),
-        fetch(`/api/delivery/profile/${partnerId}`),
-        fetch(`/api/reviews/DELIVERY_PARTNER/${partnerId}`)
+        fetch(getApiUrl("/api/orders/available-deliveries")),
+        fetch(getApiUrl(`/api/deliveries/partner/${partnerId}`)),
+        fetch(getApiUrl(`/api/delivery/earnings/${partnerId}`)),
+        fetch(getApiUrl(`/api/delivery/profile/${partnerId}`)),
+        fetch(getApiUrl(`/api/reviews/DELIVERY_PARTNER/${partnerId}`))
       ]);
 
       if (availRes.ok) setAvailableDeliveries(await availRes.json());
@@ -81,7 +82,7 @@ export default function DeliveryDashboard() {
   const handleAcceptDelivery = async (_deliveryId: string, orderId: string) => {
     if (!partnerId) return;
     try {
-      const res = await fetch(`/api/orders/${orderId}/assign-delivery`, {
+      const res = await fetch(getApiUrl(`/api/orders/${orderId}/assign-delivery`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ delivery_partner_id: partnerId }),
@@ -99,7 +100,7 @@ export default function DeliveryDashboard() {
 
   const handleStatusUpdate = async (deliveryId: string, status: string) => {
     try {
-      const res = await fetch(`/api/deliveries/${deliveryId}/status`, {
+      const res = await fetch(getApiUrl(`/api/deliveries/${deliveryId}/status`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status })
@@ -124,7 +125,7 @@ export default function DeliveryDashboard() {
     }
     setOtpError("");
     try {
-      const res = await fetch(`/api/orders/${orderId}/verify-otp`, {
+      const res = await fetch(getApiUrl(`/api/orders/${orderId}/verify-otp`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ otp, farmer_id: partnerId })
@@ -147,7 +148,7 @@ export default function DeliveryDashboard() {
     if (!partnerId) return;
     setSaveSuccess("");
     try {
-      const res = await fetch(`/api/delivery/profile/${partnerId}`, {
+      const res = await fetch(getApiUrl(`/api/delivery/profile/${partnerId}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(profile)
@@ -171,7 +172,7 @@ export default function DeliveryDashboard() {
     formData.append("file", file);
 
     try {
-      const res = await fetch(`/api/delivery/license/${partnerId}`, {
+      const res = await fetch(getApiUrl(`/api/delivery/license/${partnerId}`), {
         method: "POST",
         body: formData
       });

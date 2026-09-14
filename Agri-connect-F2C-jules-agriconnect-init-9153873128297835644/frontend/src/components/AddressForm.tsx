@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, MapPin } from "lucide-react";
+import { getApiUrl } from "../config/api";
 
 interface AddressFormProps {
   onSuccess: (newAddress: any) => void;
@@ -96,7 +97,7 @@ export default function AddressForm({ onSuccess, onCancel, consumerId, existingA
       const url = existingAddress ? `/api/addresses/${existingAddress.id}` : "/api/addresses";
       const method = existingAddress ? "PUT" : "POST";
 
-      const res = await fetch(url, {
+      const res = await fetch(getApiUrl(url), {
         method: method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)

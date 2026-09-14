@@ -69,17 +69,30 @@ load_dotenv()
 supabase_url = os.environ.get("SUPABASE_URL")
 supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
-allowed_origins_str = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8000,http://127.0.0.1:8000")
-if allowed_origins_str.strip() == "*":
+raw_origins = os.environ.get("ALLOWED_ORIGINS", "")
+default_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://agri-connect-f2c.web.app",
+    "https://agri-connect-f2c.firebaseapp.com"
+]
+
+if raw_origins.strip() == "*":
     origins = ["*"]
     allow_cred = False
 else:
-    origins = [o.strip() for o in allowed_origins_str.split(",") if o.strip()]
+    extra = [o.strip() for o in raw_origins.split(",") if o.strip()]
+    origins = list(set(default_origins + extra))
     allow_cred = True
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"https://.*\.web\.app|https://.*\.firebaseapp\.com",
     allow_credentials=allow_cred,
     allow_methods=["*"],
     allow_headers=["*"],

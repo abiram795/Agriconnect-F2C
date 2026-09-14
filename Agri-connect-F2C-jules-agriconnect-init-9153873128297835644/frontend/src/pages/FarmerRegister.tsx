@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import locationData from "../states-and-districts.json";
+import { getApiUrl } from "../config/api";
 
 export default function FarmerRegister() {
   const navigate = useNavigate();
@@ -65,7 +66,7 @@ export default function FarmerRegister() {
           submitData.append("document", fileInput);
       }
 
-      const response = await fetch('/api/farmers/register', {
+      const response = await fetch(getApiUrl('/api/farmers/register'), {
         method: 'POST',
         body: submitData,
       });

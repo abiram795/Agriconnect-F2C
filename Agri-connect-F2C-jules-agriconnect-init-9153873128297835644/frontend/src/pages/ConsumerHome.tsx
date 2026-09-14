@@ -2,6 +2,7 @@ import { Search, MapPin, AlertTriangle, Users, Image as ImageIcon, Bell, Clock, 
 import { useState, useEffect } from "react";
 import OrderModal from "../components/OrderModal";
 import AddressForm from "../components/AddressForm";
+import { getApiUrl } from "../config/api";
 
 export default function ConsumerHome() {
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -62,7 +63,7 @@ export default function ConsumerHome() {
 
   const fetchBulkRequests = async () => {
     try {
-      const res = await fetch(`/api/bulk-requests/consumer/${consumerId}`);
+      const res = await fetch(getApiUrl(`/api/bulk-requests/consumer/${consumerId}`));
       if (res.ok) setBulkRequests(await res.json());
     } catch (err) {
       console.error(err);
@@ -71,7 +72,7 @@ export default function ConsumerHome() {
 
   const fetchAddresses = async () => {
     try {
-      const res = await fetch(`/api/addresses/${consumerId}`);
+      const res = await fetch(getApiUrl(`/api/addresses/${consumerId}`));
       if (res.ok) setAddresses(await res.json());
     } catch (err) {
       console.error(err);
@@ -80,7 +81,7 @@ export default function ConsumerHome() {
 
   const deleteAddress = async (id: string) => {
     try {
-      await fetch(`/api/addresses/${id}`, { method: 'DELETE' });
+      await fetch(getApiUrl(`/api/addresses/${id}`), { method: 'DELETE' });
       fetchAddresses();
     } catch (err) {
       console.error(err);
@@ -91,7 +92,7 @@ export default function ConsumerHome() {
     setOtpLoading(prev => ({ ...prev, [orderId]: true }));
     setOtpError(prev => ({ ...prev, [orderId]: "" }));
     try {
-      const res = await fetch(`/api/orders/${orderId}/delivery-otp`);
+      const res = await fetch(getApiUrl(`/api/orders/${orderId}/delivery-otp`));
       if (res.ok) {
         const data = await res.json();
         if (data && data.otp) {
@@ -113,7 +114,7 @@ export default function ConsumerHome() {
   
   const generateNewOtp = async (orderId: string) => {
     try {
-      const res = await fetch(`/api/orders/${orderId}/generate-otp`, { method: 'POST' });
+      const res = await fetch(getApiUrl(`/api/orders/${orderId}/generate-otp`), { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
         setActiveOtps(prev => ({ ...prev, [orderId]: data.otp }));
@@ -125,7 +126,7 @@ export default function ConsumerHome() {
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch(`/api/notifications/${consumerId}`);
+      const res = await fetch(getApiUrl(`/api/notifications/${consumerId}`));
       if (res.ok) setNotifications(await res.json());
     } catch (err) {
       console.error(err);
@@ -134,7 +135,7 @@ export default function ConsumerHome() {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch(`/api/orders/consumer/${consumerId}`);
+      const res = await fetch(getApiUrl(`/api/orders/consumer/${consumerId}`));
       if (res.ok) setOrders(await res.json());
     } catch (err) {
       console.error(err);
@@ -145,7 +146,7 @@ export default function ConsumerHome() {
     setIsLoading(true);
     try {
       const url = searchQuery.trim() ? `/api/products/search?q=${encodeURIComponent(searchQuery.trim())}` : '/api/products';
-      const res = await fetch(url);
+      const res = await fetch(getApiUrl(url));
       if (res.ok) {
         const data = await res.json();
         setProducts(data);
@@ -157,7 +158,7 @@ export default function ConsumerHome() {
         await Promise.all(
           uniqueFarmerIds.map(async (fid) => {
             try {
-              const rRes = await fetch(`/api/reviews/FARMER/${fid}`);
+              const rRes = await fetch(getApiUrl(`/api/reviews/FARMER/${fid}`));
               if (rRes.ok) {
                 const rData = await rRes.json();
                 ratingsMap[fid as string] = {
@@ -185,7 +186,7 @@ export default function ConsumerHome() {
     if (!reviewModalTarget) return;
     setIsSubmittingReview(true);
     try {
-      const res = await fetch('/api/reviews', {
+      const res = await fetch(getApiUrl('/api/reviews'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -233,7 +234,7 @@ export default function ConsumerHome() {
         fulfillment_method: bulkFulfillment
       };
 
-      const response = await fetch('/api/bulk-requests', {
+      const response = await fetch(getApiUrl('/api/bulk-requests'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -260,7 +261,7 @@ export default function ConsumerHome() {
 
   const handleConsumerBulkAction = async (requestId: string, action: string) => {
     try {
-      const res = await fetch(`/api/bulk-requests/${requestId}/consumer-action`, {
+      const res = await fetch(getApiUrl(`/api/bulk-requests/${requestId}/consumer-action`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ consumer_id: consumerId, action })

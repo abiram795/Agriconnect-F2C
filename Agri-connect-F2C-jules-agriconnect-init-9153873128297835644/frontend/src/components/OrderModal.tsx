@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, CheckCircle2, ShoppingBag, AlertCircle, Plus, MapPin, Navigation } from "lucide-react";
 import AddressForm from "./AddressForm";
+import { getApiUrl } from "../config/api";
 
 interface Product {
   id: string;
@@ -60,7 +61,7 @@ export default function OrderModal({ product, onClose, onSuccess }: OrderModalPr
     const fetchAddresses = async () => {
       setIsLoadingAddresses(true);
       try {
-        const res = await fetch(`/api/addresses/${consumerId}`);
+        const res = await fetch(getApiUrl(`/api/addresses/${consumerId}`));
         if (res.ok) {
           const data = await res.json();
           setAddresses(data);
@@ -92,7 +93,7 @@ export default function OrderModal({ product, onClose, onSuccess }: OrderModalPr
   useEffect(() => {
     const fetchGeoLogistics = async () => {
       try {
-        const res = await fetch('/api/logistics/evaluate-route', {
+        const res = await fetch(getApiUrl('/api/logistics/evaluate-route'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -173,7 +174,7 @@ export default function OrderModal({ product, onClose, onSuccess }: OrderModalPr
 
       const token = localStorage.getItem("agriconnect_token") || "";
 
-      const res = await fetch(endpoint, {
+      const res = await fetch(getApiUrl(endpoint), {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",

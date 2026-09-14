@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Truck, Upload, Eye, EyeOff } from "lucide-react";
+import { getApiUrl } from "../config/api";
 
 export default function DeliveryRegister() {
   const navigate = useNavigate();
@@ -52,7 +53,7 @@ export default function DeliveryRegister() {
     if (license) data.append("license_document", license);
 
     try {
-      const res = await fetch("/api/delivery/register", {
+      const res = await fetch(getApiUrl("/api/delivery/register"), {
         method: "POST",
         body: data,
       });

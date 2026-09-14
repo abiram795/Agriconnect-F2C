@@ -1,6 +1,7 @@
 import { Package, TrendingUp, Plus, ShieldCheck, CheckCircle, AlertTriangle, User, Users, ArrowLeft, History, Bell, MapPin, DollarSign, Activity, Navigation, Truck, Star } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { getApiUrl } from "../config/api";
 
 export default function FarmerDashboard() {
   const location = useLocation();
@@ -44,37 +45,37 @@ export default function FarmerDashboard() {
       return;
     }
     try {
-      const res = await fetch(`/api/farmers/${userId}`);
+      const res = await fetch(getApiUrl(`/api/farmers/${userId}`));
       if (res.ok) {
         const data = await res.json();
         setFarmerData(data);
       }
       
-      const pRes = await fetch(`/api/farmers/${userId}/products`);
+      const pRes = await fetch(getApiUrl(`/api/farmers/${userId}/products`));
       if (pRes.ok) {
         const pData = await pRes.json();
         setProducts(pData);
       }
 
-      const oRes = await fetch(`/api/orders/farmer/${userId}`);
+      const oRes = await fetch(getApiUrl(`/api/orders/farmer/${userId}`));
       if (oRes.ok) {
         const oData = await oRes.json();
         setOrders(oData);
       }
 
-      const nRes = await fetch(`/api/notifications/${userId}`);
+      const nRes = await fetch(getApiUrl(`/api/notifications/${userId}`));
       if (nRes.ok) {
         const nData = await nRes.json();
         setNotifications(nData);
       }
 
-      const rRes = await fetch(`/api/reviews/FARMER/${userId}`);
+      const rRes = await fetch(getApiUrl(`/api/reviews/FARMER/${userId}`));
       if (rRes.ok) {
         const rData = await rRes.json();
         setFarmerReviews(rData);
       }
 
-      const bRes = await fetch(`/api/bulk-requests/farmer/${userId}`);
+      const bRes = await fetch(getApiUrl(`/api/bulk-requests/farmer/${userId}`));
       if (bRes.ok) {
         const bData = await bRes.json();
         setBulkRequests(bData);
@@ -89,7 +90,7 @@ export default function FarmerDashboard() {
   const handleFarmerBulkResponse = async (requestId: string, action: 'ACCEPT' | 'DECLINE') => {
     try {
       const userId = localStorage.getItem('agriconnect_user_id');
-      const res = await fetch(`/api/bulk-requests/${requestId}/farmer-response`, {
+      const res = await fetch(getApiUrl(`/api/bulk-requests/${requestId}/farmer-response`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ farmer_id: userId, action })
@@ -113,7 +114,7 @@ export default function FarmerDashboard() {
     if (unread.length === 0) return;
 
     try {
-      await fetch('/api/notifications/read', {
+      await fetch(getApiUrl('/api/notifications/read'), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notification_ids: unread })
@@ -166,7 +167,7 @@ export default function FarmerDashboard() {
     setOtpError("");
     try {
       const farmerId = localStorage.getItem('agriconnect_user_id');
-      const res = await fetch(`/api/orders/${orderId}/verify-otp`, {
+      const res = await fetch(getApiUrl(`/api/orders/${orderId}/verify-otp`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ otp, farmer_id: farmerId })
@@ -299,7 +300,7 @@ export default function FarmerDashboard() {
 
   const handleStatusUpdate = async (orderId: string, newStatus: string) => {
     try {
-      const res = await fetch(`/api/orders/${orderId}/farmer-status`, {
+      const res = await fetch(getApiUrl(`/api/orders/${orderId}/farmer-status`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus })

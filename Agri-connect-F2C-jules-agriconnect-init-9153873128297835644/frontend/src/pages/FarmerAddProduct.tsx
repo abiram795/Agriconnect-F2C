@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Camera, MapPin, Info, RefreshCw, CheckCircle2 } from "lucide-react";
+import { getApiUrl } from "../config/api";
 
 export default function FarmerAddProduct() {
   const navigate = useNavigate();
@@ -22,7 +23,7 @@ export default function FarmerAddProduct() {
   useEffect(() => {
     const userId = localStorage.getItem('agriconnect_user_id');
     if (userId) {
-      fetch(`/api/farmers/${userId}`)
+      fetch(getApiUrl(`/api/farmers/${userId}`))
         .then(res => res.ok ? res.json() : null)
         .then(data => {
           if (data && data.verification_status) {
@@ -114,7 +115,7 @@ export default function FarmerAddProduct() {
     setIsAnalyzingImage(true);
     setErrorMsg("");
     try {
-      const res = await fetch("/api/products/analyze-image", {
+      const res = await fetch(getApiUrl("/api/products/analyze-image"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -218,7 +219,7 @@ export default function FarmerAddProduct() {
 
     try {
       const userId = localStorage.getItem('agriconnect_user_id') || "";
-      const response = await fetch('/api/products', {
+      const response = await fetch(getApiUrl('/api/products'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { UserPlus, ArrowRight, MapPin, Eye, EyeOff } from "lucide-react";
+import { getApiUrl } from "../config/api";
 
 export default function ConsumerRegister() {
   const navigate = useNavigate();
@@ -58,7 +59,7 @@ export default function ConsumerRegister() {
     setError(null);
     
     try {
-      const res = await fetch("/api/consumers/register", {
+      const res = await fetch(getApiUrl("/api/consumers/register"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData)
