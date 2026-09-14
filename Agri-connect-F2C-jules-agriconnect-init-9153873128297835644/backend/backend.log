@@ -1,0 +1,12 @@
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [537768]
+INFO:     Started server process [715417]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:37028 - "POST /api/orders HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37040 - "POST /api/orders HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37056 - "POST /api/orders HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37058 - "POST /api/orders HTTP/1.1" 400 Bad Request
