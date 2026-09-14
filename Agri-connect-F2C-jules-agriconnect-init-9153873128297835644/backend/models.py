@@ -177,3 +177,23 @@ class HubStockTransferCreate(BaseModel):
 class HubStockReceiptAction(BaseModel):
     action: str # "CONFIRM" or "REJECT"
     rejection_reason: Optional[str] = None
+
+class HubIncomingReceiptCreate(BaseModel):
+    farmer_id: str
+    product_name: str
+    quantity: float
+    unit: Optional[str] = "kg"
+    hub_id: str
+    farmer_price: float
+    operating_cost_component: Optional[float] = 8.00
+    source_reference: Optional[str] = None
+    worker_id: Optional[str] = None
+
+class HubSaleReceiptCreate(BaseModel):
+    hub_inventory_id: str
+    quantity: float
+    unit_price: float
+    consumer_reference: Optional[str] = None
+    payment_status: Optional[str] = "PAID"
+    worker_id: Optional[str] = None
+

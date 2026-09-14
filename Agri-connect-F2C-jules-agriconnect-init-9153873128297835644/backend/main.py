@@ -12,7 +12,7 @@ BULK_REQUESTS_DB = {}
 from fastapi import FastAPI, HTTPException, Depends, Header
 from typing import List, Dict, Optional, Any
 from uuid import UUID, uuid4
-from models import UserCreate, UserResponse, ProductCreate, ProductResponse, OrderCreate, OrderResponse, BulkOrderRequestCreate, BulkOrderRequestResponse, VerificationAction, AddressCreate, AddressResponse, HubStockTransferCreate, HubStockReceiptAction
+from models import UserCreate, UserResponse, ProductCreate, ProductResponse, OrderCreate, OrderResponse, BulkOrderRequestCreate, BulkOrderRequestResponse, VerificationAction, AddressCreate, AddressResponse, HubStockTransferCreate, HubStockReceiptAction, HubIncomingReceiptCreate, HubSaleReceiptCreate
 from pydantic import BaseModel
 from ai_service import SearchRequest, SearchResponse, PriceRecommendationResponse, mock_natural_language_search, mock_price_recommendation, mock_image_analysis, ImageAnalysisResponse, ImageAnalysisRequest, analyze_product_image_real
 from ivr_service import IVRWebhookRequest, IVRResponse, get_ivr_provider, handle_incoming_call, handle_digit_input
@@ -2865,6 +2865,283 @@ async def create_hub_consumer_order(payload: dict):
         )
 
         return created_order
+
+# -----------------------------------------------------------------------------
+# HUB RECEIPT AND BILLING SYSTEM ENDPOINTS
+# -----------------------------------------------------------------------------
+
+HUB_INCOMING_RECEIPTS_DB: Dict[str, dict] = {}
+HUB_SALES_RECEIPTS_DB: Dict[str, dict] = {}
+RECEIPT_COUNTERS = {"INCOMING": 0, "SALE": 0}
+
+def generate_receipt_number(kind: str) -> str:
+    prefix = "IN" if kind == "INCOMING" else "SALE"
+    year = datetime.now().year
+    RECEIPT_COUNTERS[kind] += 1
+    seq = RECEIPT_COUNTERS[kind]
+    return f"{prefix}-{year}-{seq:04d}"
+
+@app.get("/api/farmers/all/list")
+async def list_all_farmers():
+    async with httpx.AsyncClient() as client:
+        try:
+            res = await client.get(
+                f"{supabase_url}/rest/v1/users?role=eq.farmer&select=id,name,phone,village,district,state",
+                headers=get_supabase_headers()
+            )
+            if res.status_code == 200 and res.json():
+                return res.json()
+        except Exception:
+            pass
+
+    return [
+        {"id": "f0000000-0000-0000-0000-000000000001", "name": "Ramanathan (Coimbatore Farm)", "phone": "9876543210", "village": "Annur", "district": "Coimbatore"},
+        {"id": "f0000000-0000-0000-0000-000000000002", "name": "Kavitha Green Fields", "phone": "9876543211", "village": "Pollachi", "district": "Coimbatore"},
+        {"id": "f0000000-0000-0000-0000-000000000003", "name": "Muthusamy Organic Farm", "phone": "9876543212", "village": "Mettupalayam", "district": "Coimbatore"}
+    ]
+
+@app.post("/api/hubs/receipts/incoming")
+async def create_incoming_receipt(data: HubIncomingReceiptCreate):
+    if data.quantity <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be greater than zero.")
+    if data.farmer_price <= 0:
+        raise HTTPException(status_code=400, detail="Farmer price must be greater than zero.")
+        
+    async with httpx.AsyncClient() as client:
+        headers = get_supabase_headers()
+        
+        farmer_name = "Farmer"
+        farmer_phone = ""
+        f_res = await client.get(f"{supabase_url}/rest/v1/users?id=eq.{data.farmer_id}", headers=headers)
+        if f_res.status_code == 200 and f_res.json():
+            farmer_name = f_res.json()[0].get("name", "Farmer")
+            farmer_phone = f_res.json()[0].get("phone", "")
+            
+        receipt_no = generate_receipt_number("INCOMING")
+        operating_cost = data.operating_cost_component or 8.00
+        hub_price = data.farmer_price + operating_cost
+        receipt_id = str(uuid4())
+        now_iso = datetime.now().isoformat()
+        
+        receipt_record = {
+            "id": receipt_id,
+            "receipt_number": receipt_no,
+            "hub_id": data.hub_id,
+            "worker_id": data.worker_id or "COIMBATORE-WORKER-001",
+            "farmer_id": data.farmer_id,
+            "farmer_name": farmer_name,
+            "farmer_phone": farmer_phone,
+            "product_name": data.product_name,
+            "quantity": data.quantity,
+            "unit": data.unit or "kg",
+            "farmer_price": data.farmer_price,
+            "operating_cost_component": operating_cost,
+            "hub_price": hub_price,
+            "total_value": data.quantity * data.farmer_price,
+            "source_reference": data.source_reference or f"Direct Farmer Transfer - {farmer_name}",
+            "status": "RECEIVED & VERIFIED",
+            "created_at": now_iso
+        }
+        
+        try:
+            await client.post(f"{supabase_url}/rest/v1/hub_incoming_receipts", json={
+                "id": receipt_id,
+                "receipt_number": receipt_no,
+                "hub_id": data.hub_id,
+                "worker_id": data.worker_id,
+                "farmer_id": data.farmer_id,
+                "product_name": data.product_name,
+                "quantity": data.quantity,
+                "unit": data.unit or "kg",
+                "farmer_price": data.farmer_price,
+                "operating_cost_component": operating_cost,
+                "hub_price": hub_price,
+                "source_reference": data.source_reference,
+                "status": "RECEIVED & VERIFIED"
+            }, headers=headers)
+        except Exception:
+            pass
+
+        HUB_INCOMING_RECEIPTS_DB[receipt_id] = receipt_record
+        HUB_INCOMING_RECEIPTS_DB[receipt_no] = receipt_record
+
+        # Automatically create or update Hub Inventory entry linked to source farmer!
+        inv_id = str(uuid4())
+        inv_record = {
+            "id": inv_id,
+            "hub_id": data.hub_id,
+            "farmer_id": data.farmer_id,
+            "product_name": data.product_name,
+            "quantity_received": data.quantity,
+            "quantity_sold": 0.0,
+            "quantity_remaining": data.quantity,
+            "farmer_price": data.farmer_price,
+            "operating_cost_component": operating_cost,
+            "hub_price": hub_price,
+            "unit": data.unit or "kg",
+            "status": "AVAILABLE",
+            "created_at": now_iso,
+            "users": {"name": farmer_name, "phone": farmer_phone}
+        }
+        try:
+            await client.post(f"{supabase_url}/rest/v1/hub_inventory", json={
+                "id": inv_id,
+                "hub_id": data.hub_id,
+                "farmer_id": data.farmer_id,
+                "product_name": data.product_name,
+                "quantity_received": data.quantity,
+                "quantity_sold": 0.0,
+                "quantity_remaining": data.quantity,
+                "farmer_price": data.farmer_price,
+                "operating_cost_component": operating_cost,
+                "hub_price": hub_price,
+                "unit": data.unit or "kg",
+                "status": "AVAILABLE"
+            }, headers=headers)
+        except Exception:
+            pass
+
+        HUB_INVENTORY_MEM[inv_id] = inv_record
+
+        return receipt_record
+
+@app.get("/api/hubs/receipts/incoming")
+async def get_incoming_receipts(hub_id: Optional[str] = None):
+    async with httpx.AsyncClient() as client:
+        try:
+            url = f"{supabase_url}/rest/v1/hub_incoming_receipts?select=*,users!farmer_id(name,phone)&order=created_at.desc"
+            if hub_id:
+                url = f"{supabase_url}/rest/v1/hub_incoming_receipts?hub_id=eq.{hub_id}&select=*,users!farmer_id(name,phone)&order=created_at.desc"
+            res = await client.get(url, headers=get_supabase_headers())
+            if res.status_code == 200 and res.json():
+                return res.json()
+        except Exception:
+            pass
+
+    items = list({r["id"]: r for r in HUB_INCOMING_RECEIPTS_DB.values()}.values())
+    if hub_id:
+        items = [r for r in items if r.get("hub_id") == hub_id or hub_id in ["COIMBATORE-HUB-001", "HUB-CBE-01"]]
+    return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)
+
+@app.post("/api/hubs/receipts/sale")
+async def create_hub_sale_receipt(data: HubSaleReceiptCreate):
+    if data.quantity <= 0:
+        raise HTTPException(status_code=400, detail="Sale quantity must be greater than zero.")
+    if data.unit_price <= 0:
+        raise HTTPException(status_code=400, detail="Unit price must be greater than zero.")
+
+    async with httpx.AsyncClient() as client:
+        headers = get_supabase_headers()
+        
+        hub_item = None
+        try:
+            res = await client.get(f"{supabase_url}/rest/v1/hub_inventory?id=eq.{data.hub_inventory_id}&select=*,users!farmer_id(name,phone)", headers=headers)
+            if res.status_code == 200 and res.json():
+                hub_item = res.json()[0]
+        except Exception:
+            pass
+
+        if not hub_item:
+            hub_item = HUB_INVENTORY_MEM.get(data.hub_inventory_id)
+
+        if not hub_item:
+            raise HTTPException(status_code=404, detail="Selected Hub inventory item not found.")
+
+        avail_qty = float(hub_item.get("quantity_remaining", 0.0))
+        if data.quantity > avail_qty:
+            raise HTTPException(status_code=400, detail=f"Insufficient inventory available ({avail_qty} {hub_item.get('unit', 'kg')} remaining). Cannot sell {data.quantity} {hub_item.get('unit', 'kg')}.")
+
+        farmer_id = str(hub_item.get("farmer_id"))
+        farmer_name = "Farmer"
+        if isinstance(hub_item.get("users"), dict):
+            farmer_name = hub_item["users"].get("name", "Farmer")
+        else:
+            f_res = await client.get(f"{supabase_url}/rest/v1/users?id=eq.{farmer_id}", headers=headers)
+            if f_res.status_code == 200 and f_res.json():
+                farmer_name = f_res.json()[0].get("name", "Farmer")
+
+        total_price = data.quantity * data.unit_price
+        new_remaining = avail_qty - data.quantity
+        new_sold = float(hub_item.get("quantity_sold", 0.0)) + data.quantity
+        new_status = "AVAILABLE" if new_remaining > 0 else "OUT_OF_STOCK"
+
+        try:
+            await client.patch(
+                f"{supabase_url}/rest/v1/hub_inventory?id=eq.{data.hub_inventory_id}",
+                json={"quantity_remaining": new_remaining, "quantity_sold": new_sold, "status": new_status, "updated_at": datetime.now().isoformat()},
+                headers=headers
+            )
+        except Exception:
+            pass
+
+        if data.hub_inventory_id in HUB_INVENTORY_MEM:
+            HUB_INVENTORY_MEM[data.hub_inventory_id]["quantity_remaining"] = new_remaining
+            HUB_INVENTORY_MEM[data.hub_inventory_id]["quantity_sold"] = new_sold
+            HUB_INVENTORY_MEM[data.hub_inventory_id]["status"] = new_status
+
+        receipt_no = generate_receipt_number("SALE")
+        sale_id = str(uuid4())
+        now_iso = datetime.now().isoformat()
+
+        sale_record = {
+            "id": sale_id,
+            "receipt_number": receipt_no,
+            "hub_id": hub_item.get("hub_id", "COIMBATORE-HUB-001"),
+            "worker_id": data.worker_id or "COIMBATORE-WORKER-001",
+            "hub_inventory_id": data.hub_inventory_id,
+            "farmer_id": farmer_id,
+            "farmer_name": farmer_name,
+            "product_name": hub_item.get("product_name"),
+            "quantity": data.quantity,
+            "unit": hub_item.get("unit", "kg"),
+            "unit_price": data.unit_price,
+            "total_price": total_price,
+            "consumer_reference": data.consumer_reference or "Direct Counter Purchase",
+            "payment_status": data.payment_status or "PAID",
+            "created_at": now_iso
+        }
+
+        try:
+            await client.post(f"{supabase_url}/rest/v1/hub_sales_receipts", json={
+                "id": sale_id,
+                "receipt_number": receipt_no,
+                "hub_id": hub_item.get("hub_id"),
+                "worker_id": data.worker_id,
+                "hub_inventory_id": data.hub_inventory_id,
+                "farmer_id": farmer_id,
+                "product_name": hub_item.get("product_name"),
+                "quantity": data.quantity,
+                "unit": hub_item.get("unit", "kg"),
+                "unit_price": data.unit_price,
+                "total_price": total_price,
+                "consumer_reference": data.consumer_reference,
+                "payment_status": data.payment_status or "PAID"
+            }, headers=headers)
+        except Exception:
+            pass
+
+        HUB_SALES_RECEIPTS_DB[sale_id] = sale_record
+        HUB_SALES_RECEIPTS_DB[receipt_no] = sale_record
+
+        return sale_record
+
+@app.get("/api/hubs/receipts/sales")
+async def get_sales_receipts(hub_id: Optional[str] = None):
+    async with httpx.AsyncClient() as client:
+        try:
+            url = f"{supabase_url}/rest/v1/hub_sales_receipts?select=*,users!farmer_id(name,phone)&order=created_at.desc"
+            if hub_id:
+                url = f"{supabase_url}/rest/v1/hub_sales_receipts?hub_id=eq.{hub_id}&select=*,users!farmer_id(name,phone)&order=created_at.desc"
+            res = await client.get(url, headers=get_supabase_headers())
+            if res.status_code == 200 and res.json():
+                return res.json()
+        except Exception:
+            pass
+
+    items = list({r["id"]: r for r in HUB_SALES_RECEIPTS_DB.values()}.values())
+    if hub_id:
+        items = [r for r in items if r.get("hub_id") == hub_id or hub_id in ["COIMBATORE-HUB-001", "HUB-CBE-01"]]
+    return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)
 
 if __name__ == "__main__":
     import uvicorn
