@@ -32,3 +32,26 @@ def test_ai_search():
     response = client.post("/api/ai/search", json=search_req)
     assert response.status_code == 200
     assert response.json()["product"] == "Tomatoes"
+
+def test_demo_hub_login_success():
+    login_data = {
+        "phone": "hub@agriconnect.demo",
+        "password": "AgriHub@2026",
+        "role": "hub_worker"
+    }
+    response = client.post("/api/login", json=login_data)
+    assert response.status_code == 200
+    res_j = response.json()
+    assert res_j["phone"] == "hub@agriconnect.demo"
+    assert res_j["role"] == "hub_worker"
+    assert res_j["hub_id"] == "COIMBATORE-HUB-001"
+
+def test_demo_hub_login_invalid_password():
+    login_data = {
+        "phone": "hub@agriconnect.demo",
+        "password": "WrongPassword123",
+        "role": "hub_worker"
+    }
+    response = client.post("/api/login", json=login_data)
+    assert response.status_code == 401
+    assert "Invalid" in response.json()["detail"]

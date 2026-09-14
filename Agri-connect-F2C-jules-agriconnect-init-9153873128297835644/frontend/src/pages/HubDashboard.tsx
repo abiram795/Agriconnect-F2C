@@ -5,8 +5,8 @@ import { getApiUrl } from "../config/api";
 
 export default function HubDashboard() {
   const navigate = useNavigate();
-  const [hubId] = useState("HUB-CBE-01");
-  const [hubName] = useState("Coimbatore Central City Hub");
+  const [hubId] = useState("COIMBATORE-HUB-001");
+  const [hubName] = useState("Coimbatore Hub");
   const [pendingTransfers, setPendingTransfers] = useState<any[]>([]);
   const [hubInventory, setHubInventory] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -14,26 +14,42 @@ export default function HubDashboard() {
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
-  const hubWorkerName = localStorage.getItem("agriconnect_user_name") || "Hub Worker";
+  const hubWorkerName = localStorage.getItem("agriconnect_user_name") || "Coimbatore Hub Manager";
 
   useEffect(() => {
+    const userId = localStorage.getItem("agriconnect_user_id");
+    const role = localStorage.getItem("agriconnect_user_role");
+    if (!userId || (role !== "hub_worker" && role !== "hub")) {
+      navigate("/hub-login");
+      return;
+    }
     fetchHubData();
   }, [hubId]);
 
   const fetchHubData = async () => {
     setIsLoading(true);
     try {
-      const [pendingRes, invRes] = await Promise.all([
-        fetch(getApiUrl(`/api/hubs/transfers/pending?hub_id=${hubId}`)),
-        fetch(getApiUrl(`/api/hubs/${hubId}/inventory`))
+      const [pendingRes1, pendingRes2, invRes1, invRes2] = await Promise.all([
+        fetch(getApiUrl(`/api/hubs/transfers/pending?hub_id=COIMBATORE-HUB-001`)),
+        fetch(getApiUrl(`/api/hubs/transfers/pending?hub_id=HUB-CBE-01`)),
+        fetch(getApiUrl(`/api/hubs/COIMBATORE-HUB-001/inventory`)),
+        fetch(getApiUrl(`/api/hubs/HUB-CBE-01/inventory`))
       ]);
 
-      if (pendingRes.ok) {
-        setPendingTransfers(await pendingRes.json());
-      }
-      if (invRes.ok) {
-        setHubInventory(await invRes.json());
-      }
+      let pending: any[] = [];
+      let inv: any[] = [];
+
+      if (pendingRes1.ok) pending = pending.concat(await pendingRes1.json());
+      if (pendingRes2.ok) pending = pending.concat(await pendingRes2.json());
+      if (invRes1.ok) inv = inv.concat(await invRes1.json());
+      if (invRes2.ok) inv = inv.concat(await invRes2.json());
+
+      // Deduplicate transfers by id
+      const uniquePending = Array.from(new Map(pending.map(item => [item.id, item])).values());
+      const uniqueInv = Array.from(new Map(inv.map(item => [item.id, item])).values());
+
+      setPendingTransfers(uniquePending);
+      setHubInventory(uniqueInv);
     } catch (err) {
       console.error("Failed to load hub data:", err);
     } finally {

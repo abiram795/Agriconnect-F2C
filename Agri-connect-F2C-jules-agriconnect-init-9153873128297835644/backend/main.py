@@ -1757,16 +1757,43 @@ async def login_user(login_data: LoginRequest):
     if not login_data.password or len(login_data.password.strip()) == 0:
         raise HTTPException(status_code=400, detail="Please enter a password.")
 
+    identifier = login_data.phone.strip()
+    
+    # Check for Demo Hub Account
+    if (identifier.lower() == "hub@agriconnect.demo" or identifier == "9998887770") and login_data.role in ["hub_worker", "hub"]:
+        if login_data.password == "AgriHub@2026":
+            return {
+                "id": "d0000000-0000-0000-0000-000000000001",
+                "name": "Coimbatore Hub Manager",
+                "phone": "hub@agriconnect.demo",
+                "role": "hub_worker",
+                "hub_id": "COIMBATORE-HUB-001"
+            }
+        else:
+            raise HTTPException(status_code=401, detail="Invalid username/email or password.")
+
     async with httpx.AsyncClient() as client:
         # Check if user exists in users table with role
         res = await client.get(
-            f"{supabase_url}/rest/v1/users?phone=eq.{login_data.phone}&role=eq.{login_data.role}",
+            f"{supabase_url}/rest/v1/users?phone=eq.{identifier}&role=eq.{login_data.role}",
             headers=get_supabase_headers()
         )
-        if res.status_code != 200 or not res.json():
-            raise HTTPException(status_code=401, detail="Invalid phone number or password.")
-        
-        user = res.json()[0]
+        user = None
+        if res.status_code == 200 and res.json():
+            user = res.json()[0]
+        else:
+            # Fallback search without strict role filter if user registered with email or alt identifier
+            alt_res = await client.get(
+                f"{supabase_url}/rest/v1/users?phone=eq.{identifier}",
+                headers=get_supabase_headers()
+            )
+            if alt_res.status_code == 200 and alt_res.json():
+                matched = alt_res.json()[0]
+                if matched.get("role") == login_data.role or (login_data.role in ["hub", "hub_worker"] and matched.get("role") in ["hub", "hub_worker"]):
+                    user = matched
+
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid phone number/email or password.")
         
         # Get registered auth email if auth_id is present
         auth_email = None
@@ -1779,9 +1806,9 @@ async def login_user(login_data: LoginRequest):
                 auth_email = auth_user_res.json().get("email")
 
         # Verify password with Supabase Auth
-        verified = await verify_supabase_auth_password(client, login_data.phone, login_data.password, email=auth_email)
+        verified = await verify_supabase_auth_password(client, identifier, login_data.password, email=auth_email)
         if not verified:
-            raise HTTPException(status_code=401, detail="Invalid phone number or password.")
+            raise HTTPException(status_code=401, detail="Invalid phone number/email or password.")
 
         return user
 

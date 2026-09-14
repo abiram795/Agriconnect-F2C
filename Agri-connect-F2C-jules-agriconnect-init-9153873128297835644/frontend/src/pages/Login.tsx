@@ -163,13 +163,21 @@ export default function Login({ role, onLogin }: LoginProps) {
                 </div>
                 <input
                   type="text"
-                  placeholder="Mobile Number (e.g. 9876543210)"
+                  placeholder={role === "hub" ? "Email / Username (e.g. hub@agriconnect.demo)" : "Mobile Number (e.g. 9876543210)"}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition"
                   value={mobile}
                   onChange={(e) => setMobile(e.target.value)}
                   required
                 />
               </div>
+              {role === "hub" && (
+                <div className="mt-2 text-xs bg-emerald-50 border border-emerald-200 text-emerald-900 p-2.5 rounded-lg space-y-0.5">
+                  <p className="font-bold">SIH Demo Hub Credentials:</p>
+                  <p>• Username/Email: <code className="bg-emerald-100 px-1 py-0.5 rounded font-mono font-bold">hub@agriconnect.demo</code></p>
+                  <p>• Password: <code className="bg-emerald-100 px-1 py-0.5 rounded font-mono font-bold">AgriHub@2026</code></p>
+                  <p>• Hub ID: <span className="font-semibold">COIMBATORE-HUB-001</span></p>
+                </div>
+              )}
             </div>
 
             <div>
@@ -216,14 +224,18 @@ export default function Login({ role, onLogin }: LoginProps) {
               <Leaf className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="font-semibold text-gray-800 text-sm">New to AgriConnect?</h4>
+              <h4 className="font-semibold text-gray-800 text-sm">
+                {role === "hub" ? "AgriConnect Hub Operations" : "New to AgriConnect?"}
+              </h4>
               <p className="text-sm text-gray-600 mt-1 mb-3">{config.registerText}</p>
-              <Link
-                to={config.registerLink}
-                className="inline-block px-4 py-2 border border-gray-300 bg-white rounded-lg text-sm font-medium hover:bg-gray-50 transition"
-              >
-                Register Now →
-              </Link>
+              {role !== "hub" && (
+                <Link
+                  to={config.registerLink}
+                  className="inline-block px-4 py-2 border border-gray-300 bg-white rounded-lg text-sm font-medium hover:bg-gray-50 transition"
+                >
+                  Register Now →
+                </Link>
+              )}
             </div>
           </div>
         </div>
