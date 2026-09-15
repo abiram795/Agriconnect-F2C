@@ -16,6 +16,7 @@ from models import UserCreate, UserResponse, ProductCreate, ProductResponse, Ord
 from pydantic import BaseModel
 from ai_service import SearchRequest, SearchResponse, PriceRecommendationResponse, mock_natural_language_search, mock_price_recommendation, mock_image_analysis, ImageAnalysisResponse, ImageAnalysisRequest, analyze_product_image_real
 from ivr_service import IVRWebhookRequest, IVRResponse, get_ivr_provider, handle_incoming_call, handle_digit_input
+from market_service import get_today_market_analysis, MarketAnalysisResponse, COMMODITY_NAME_MAP
 
 import os
 import httpx
@@ -862,6 +863,22 @@ def ai_search(req: SearchRequest):
 @app.get("/api/ai/price", response_model=PriceRecommendationResponse)
 def ai_price(product: str):
     return mock_price_recommendation(product)
+
+# Today's Market Analysis Endpoint (Real Agmarknet Data)
+@app.get("/api/market-analysis", response_model=MarketAnalysisResponse)
+async def get_market_analysis_endpoint(commodity: str, farmer_id: Optional[str] = None):
+    headers = get_supabase_headers() if supabase_url else {}
+    return await get_today_market_analysis(
+        commodity=commodity,
+        farmer_id=farmer_id,
+        supabase_url=supabase_url,
+        supabase_headers=headers
+    )
+
+@app.get("/api/market-analysis/commodities")
+def get_supported_commodities():
+    commodities = sorted(list(set(COMMODITY_NAME_MAP.values())))
+    return {"commodities": commodities}
 
 # -----------------------------------------------------------------------------
 # IVR ARCHITECTURE ENDPOINTS

@@ -1,7 +1,8 @@
-import { Package, TrendingUp, Plus, ShieldCheck, CheckCircle, AlertTriangle, User, Users, ArrowLeft, Bell, MapPin, DollarSign, Activity, Navigation, Truck, Star, X } from "lucide-react";
+import { Package, TrendingUp, Plus, ShieldCheck, CheckCircle, AlertTriangle, User, Users, ArrowLeft, Bell, MapPin, DollarSign, Activity, Navigation, Truck, Star, X, BarChart2 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { getApiUrl } from "../config/api";
+import MarketAnalysisModal from "../components/MarketAnalysisModal";
 
 export default function FarmerDashboard() {
   const location = useLocation();
@@ -20,6 +21,7 @@ export default function FarmerDashboard() {
   const [showProfile, setShowProfile] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [isMarketModalOpen, setIsMarketModalOpen] = useState(false);
   const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
   const [otpError, setOtpError] = useState<string>("");
 
@@ -656,6 +658,14 @@ export default function FarmerDashboard() {
               )}
             </div>
 
+            <button
+              type="button"
+              onClick={() => setIsMarketModalOpen(true)}
+              className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2 px-4 rounded-lg flex items-center shadow-md transition-colors"
+            >
+              <BarChart2 className="w-4 h-4 mr-1.5" /> 🌾 Today's Market Analysis
+            </button>
+
             {status !== 'Approved' ? (
                 <button disabled className="bg-gray-400 text-white font-bold py-2 px-4 rounded-lg flex items-center shadow-md cursor-not-allowed">
                     <Plus className="w-5 h-5 mr-1" /> Add Product
@@ -1107,6 +1117,12 @@ export default function FarmerDashboard() {
           </div>
         </div>
       )}
+
+      {/* Market Analysis Modal */}
+      <MarketAnalysisModal
+        isOpen={isMarketModalOpen}
+        onClose={() => setIsMarketModalOpen(false)}
+      />
     </div>
     </div>
   );

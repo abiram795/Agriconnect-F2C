@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Camera, MapPin, Info, RefreshCw, CheckCircle2 } from "lucide-react";
+import { Camera, MapPin, Info, RefreshCw, CheckCircle2, BarChart2 } from "lucide-react";
 import { getApiUrl } from "../config/api";
+import MarketAnalysisModal from "../components/MarketAnalysisModal";
 
 export default function FarmerAddProduct() {
   const navigate = useNavigate();
@@ -85,6 +86,9 @@ export default function FarmerAddProduct() {
   const [errorMsg, setErrorMsg] = useState("");
   const [showPriceWarning, setShowPriceWarning] = useState(false);
   const [productNameInput, setProductNameInput] = useState("");
+  const [isMarketModalOpen, setIsMarketModalOpen] = useState(false);
+  const [priceInput, setPriceInput] = useState("");
+  const [appliedReferenceRange, setAppliedReferenceRange] = useState("");
 
   const REFERENCE_PRICES: Record<string, number> = {
     "tomato": 40,
@@ -286,7 +290,20 @@ export default function FarmerAddProduct() {
           )}
 
           <div className="space-y-6">
-            <h2 className="text-xl font-semibold text-gray-800 flex items-center"><MapPin className="w-5 h-5 mr-2 text-primary"/> 1. Product Details</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+              <h2 className="text-xl font-semibold text-gray-800 flex items-center">
+                <MapPin className="w-5 h-5 mr-2 text-primary"/> 1. Product Details
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsMarketModalOpen(true)}
+                className="bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold py-2 px-4 rounded-xl flex items-center shadow-sm transition-all self-start sm:self-auto"
+              >
+                <BarChart2 className="w-4 h-4 mr-2" />
+                🌾 Check Today's Market
+              </button>
+            </div>
+
             <div className="grid md:grid-cols-2 gap-6">
                 <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
@@ -332,8 +349,25 @@ export default function FarmerAddProduct() {
                 </select>
                 </div>
                 <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹ per unit)</label>
-                <input required name="price" type="number" min="1" className="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary/50" placeholder="e.g., 35" />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700">Price (₹ per unit)</label>
+                  {appliedReferenceRange && (
+                    <span className="text-[11px] font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded border border-green-200">
+                      Ref: {appliedReferenceRange}
+                    </span>
+                  )}
+                </div>
+                <input 
+                  required 
+                  name="price" 
+                  type="number" 
+                  step="0.1"
+                  min="1" 
+                  value={priceInput}
+                  onChange={(e) => setPriceInput(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary/50" 
+                  placeholder="e.g., 35" 
+                />
                 </div>
             </div>
           </div>
@@ -462,6 +496,17 @@ export default function FarmerAddProduct() {
           </div>
         </form>
       </div>
+
+      {/* Today's Market Analysis Modal */}
+      <MarketAnalysisModal
+        isOpen={isMarketModalOpen}
+        onClose={() => setIsMarketModalOpen(false)}
+        initialCommodity={productNameInput || "Tomato"}
+        onSelectReferencePrice={(suggestedPrice, rangeStr) => {
+          setPriceInput(suggestedPrice.toString());
+          setAppliedReferenceRange(rangeStr);
+        }}
+      />
     </div>
   );
 }
