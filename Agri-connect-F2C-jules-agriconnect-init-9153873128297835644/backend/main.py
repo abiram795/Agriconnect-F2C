@@ -1,5 +1,5 @@
 
-# Fallback Store for Reviews, Earnings and Delivery Profiles
+# Fallback Store for Reviews, Earnings, Delivery Profiles and IVR Identities
 REVIEWS_DB = []
 DELIVERIES_DB = {}
 EARNINGS_DB = {}
@@ -7,6 +7,7 @@ NOTIFICATIONS_DB = []
 DELIVERY_PROFILES = {}
 PARTNER_EARNINGS = {}
 BULK_REQUESTS_DB = {}
+FARMER_IVR_STORE = {}
 
 
 from fastapi import FastAPI, HTTPException, Depends, Header
@@ -918,25 +919,150 @@ async def get_farmer_ivr_status(farmer_id: str):
             farmer_user = user_data[0]
             phone = farmer_user.get("phone", "")
 
-            # Fetch recent call logs from ivr_calls
             calls_res = await client.get(
                 f"{supabase_url}/rest/v1/ivr_calls?caller_phone=eq.{phone}&order=created_at.desc&limit=10",
                 headers=get_supabase_headers()
             )
             calls_data = calls_res.json() if calls_res.status_code == 200 else []
-
             return {
-                "farmer_id": farmer_id,
-                "name": farmer_user.get("name"),
-                "phone": phone,
-                "is_ivr_user": True,
                 "status": "Active",
-                "call_count": len(calls_data),
-                "recent_calls": calls_data
+                "is_ivr_user": True,
+                "phone": phone,
+                "call_history": calls_data
             }
         except Exception as e:
-            logger.error(f"Error fetching farmer IVR status: {e}")
-            return {"status": "Active", "is_ivr_user": True, "call_history": []}
+            return {"status": "Active", "is_ivr_user": True, "call_history": [], "error": str(e)}
+
+class IVRInteractiveRequest(BaseModel):
+    farmer_id: Optional[str] = None
+    digits: str = "1"
+    state: str = "MAIN_MENU"
+    language: str = "Tamil"
+    category: Optional[str] = None
+
+@app.get("/api/ivr/farmer/{farmer_id}/access")
+async def get_farmer_ivr_access(
+    farmer_id: str,
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id")
+):
+    # Authorization check: Farmer A cannot access Farmer B's IVR identity
+    if x_user_id != farmer_id:
+        is_admin = False
+        if supabase_url and supabase_key:
+            async with httpx.AsyncClient() as client:
+                res = await client.get(
+                    f"{supabase_url}/rest/v1/users?id=eq.{x_user_id}&role=eq.admin",
+                    headers=get_supabase_headers()
+                )
+                if res.status_code == 200 and res.json():
+                    is_admin = True
+        if not is_admin:
+            raise HTTPException(status_code=403, detail="Unauthorized: Access denied to another farmer's IVR identity.")
+
+    provider_env = os.environ.get("IVR_PROVIDER", "mock").lower().strip()
+    is_live = provider_env in ("twilio", "exotel") and bool(os.environ.get("IVR_PHONE_NUMBER"))
+    
+    status_label = "Live Provider Connected" if is_live else "Demo / Ready for Provider Integration"
+    provider_name = provider_env.capitalize() if is_live else "Mock / Ready for Integration"
+    demo_flag = not is_live
+
+    farmer_name = "Farmer"
+    farmer_phone = "+91 98765 43210"
+
+    # Fetch farmer profile from Supabase
+    if supabase_url and supabase_key:
+        try:
+            async with httpx.AsyncClient(timeout=4.0) as client:
+                res = await client.get(
+                    f"{supabase_url}/rest/v1/users?id=eq.{farmer_id}",
+                    headers=get_supabase_headers()
+                )
+                if res.status_code == 200 and res.json():
+                    user_rec = res.json()[0]
+                    farmer_name = user_rec.get("name", "Farmer")
+                    farmer_phone = user_rec.get("phone", farmer_phone)
+        except Exception as e:
+            logger.warning(f"Error fetching farmer user for IVR access: {e}")
+
+    # Check persistence in FARMER_IVR_STORE
+    ivr_identifier = None
+    if farmer_id in FARMER_IVR_STORE:
+        ivr_identifier = FARMER_IVR_STORE[farmer_id].get("ivr_identifier")
+
+    # Check persistence in Supabase farmer_ivr table
+    if not ivr_identifier and supabase_url and supabase_key:
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                res = await client.get(
+                    f"{supabase_url}/rest/v1/farmer_ivr?farmer_id=eq.{farmer_id}",
+                    headers=get_supabase_headers()
+                )
+                if res.status_code == 200 and res.json():
+                    ivr_identifier = res.json()[0].get("ivr_identifier")
+        except Exception:
+            pass
+
+    # Generate persistent unique identifier if not yet assigned
+    if not ivr_identifier:
+        short_code = str(farmer_id).replace("-", "").upper()[:4]
+        if len(short_code) < 4:
+            short_code = f"{abs(hash(farmer_id)) % 10000:04d}"
+        ivr_identifier = f"IVR-FMR-{short_code}"
+
+    # Save to FARMER_IVR_STORE
+    FARMER_IVR_STORE[farmer_id] = {
+        "farmer_id": farmer_id,
+        "farmer_name": farmer_name,
+        "registered_mobile": farmer_phone,
+        "ivr_identifier": ivr_identifier,
+        "status_label": status_label,
+        "created_at": datetime.now().isoformat()
+    }
+
+    # Attempt Supabase persistence
+    if supabase_url and supabase_key:
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                await client.post(
+                    f"{supabase_url}/rest/v1/farmer_ivr",
+                    json={
+                        "farmer_id": farmer_id,
+                        "registered_mobile": farmer_phone,
+                        "ivr_identifier": ivr_identifier,
+                        "ivr_enabled": True
+                    },
+                    headers={**get_supabase_headers(), "Prefer": "resolution=ignore-duplicates"}
+                )
+        except Exception:
+            pass
+
+    phone_display = os.environ.get("IVR_PHONE_NUMBER") or "+91 1800-AGRI-CONNECT (Demo)"
+
+    return {
+        "success": True,
+        "farmer_id": farmer_id,
+        "farmer_name": farmer_name,
+        "registered_mobile": farmer_phone,
+        "ivr_identifier": ivr_identifier,
+        "ivr_phone_number": phone_display,
+        "language": "Tamil / English",
+        "status_label": status_label,
+        "is_demo": demo_flag,
+        "provider_name": provider_name,
+        "phone_independent_note": "Available for all farmers on basic button phones & smartphones."
+    }
+
+@app.post("/api/ivr/interactive-menu")
+async def interactive_ivr_menu(req: IVRInteractiveRequest):
+    provider = get_ivr_provider()
+    webhook_req = IVRWebhookRequest(
+        Digits=req.digits,
+        State=req.state,
+        Language=req.language,
+        SelectedCategory=req.category,
+        FarmerId=req.farmer_id
+    )
+    return await provider.process_call(webhook_req, supabase_url, supabase_key)
 
 
 @app.get("/api/products/search")

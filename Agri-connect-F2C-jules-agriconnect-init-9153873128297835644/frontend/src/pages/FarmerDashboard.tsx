@@ -1,8 +1,9 @@
-import { Package, TrendingUp, Plus, ShieldCheck, CheckCircle, AlertTriangle, User, Users, ArrowLeft, Bell, MapPin, DollarSign, Activity, Navigation, Truck, Star, X, BarChart2 } from "lucide-react";
+import { Package, TrendingUp, Plus, ShieldCheck, CheckCircle, AlertTriangle, User, Users, ArrowLeft, Bell, MapPin, DollarSign, Activity, Navigation, Truck, Star, X, BarChart2, Phone } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { getApiUrl } from "../config/api";
 import MarketAnalysisModal from "../components/MarketAnalysisModal";
+import FarmerIVRMenuModal from "../components/FarmerIVRMenuModal";
 
 export default function FarmerDashboard() {
   const location = useLocation();
@@ -22,6 +23,8 @@ export default function FarmerDashboard() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const [isMarketModalOpen, setIsMarketModalOpen] = useState(false);
+  const [ivrData, setIvrData] = useState<any>(null);
+  const [isIVRModalOpen, setIsIVRModalOpen] = useState(false);
   const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
   const [otpError, setOtpError] = useState<string>("");
 
@@ -96,6 +99,14 @@ export default function FarmerDashboard() {
       const hRes = await fetch(getApiUrl(`/api/hubs/farmer/${userId}/stock`));
       if (hRes.ok) {
         setHubStockData(await hRes.json());
+      }
+
+      const ivrRes = await fetch(getApiUrl(`/api/ivr/farmer/${userId}/access`), {
+        headers: { "X-User-Id": userId }
+      });
+      if (ivrRes.ok) {
+        const ivrInfo = await ivrRes.json();
+        setIvrData(ivrInfo);
       }
     } catch (err) {
       console.error("Failed to fetch data", err);
@@ -660,6 +671,14 @@ export default function FarmerDashboard() {
 
             <button
               type="button"
+              onClick={() => setIsIVRModalOpen(true)}
+              className="bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded-lg flex items-center shadow-md transition-colors"
+            >
+              <Phone className="w-4 h-4 mr-1.5" /> 📞 My IVR Access
+            </button>
+
+            <button
+              type="button"
               onClick={() => setIsMarketModalOpen(true)}
               className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2 px-4 rounded-lg flex items-center shadow-md transition-colors"
             >
@@ -671,12 +690,56 @@ export default function FarmerDashboard() {
                     <Plus className="w-5 h-5 mr-1" /> Add Product
                 </button>
             ) : (
-                <Link to="/farmer/add-product" className="bg-primary hover:bg-secondary text-white font-bold py-2 px-4 rounded-lg flex items-center shadow-md transition-colors">
+                <Link to="/farmer/add-product" className="bg-[#0B6B3A] hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg flex items-center shadow-md transition-colors">
                     <Plus className="w-5 h-5 mr-1" /> Add Product
                 </Link>
             )}
         </div>
       </header>
+
+      {/* Unique Farmer IVR Identity Card */}
+      <div className="mb-8 bg-white border border-blue-200 rounded-2xl shadow-sm p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700 font-bold shrink-0">
+            <Phone className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-lg font-bold text-gray-900">Unique Farmer IVR Identity</h3>
+              <span className="bg-blue-100 text-blue-800 text-xs font-extrabold px-2.5 py-0.5 rounded-full border border-blue-200">
+                {ivrData?.status_label || "Demo / Ready for Provider Integration"}
+              </span>
+            </div>
+            <p className="text-xs text-gray-600 mt-1">
+              {ivrData?.phone_independent_note || "Works on Basic Button Phones & Smartphones"}
+            </p>
+            <div className="flex items-center gap-4 mt-3 text-xs font-semibold text-gray-700 flex-wrap">
+              <div>
+                <span className="text-gray-400 block text-[10px]">YOUR IVR ID</span>
+                <span className="font-mono text-sm font-extrabold text-blue-900">{ivrData?.ivr_identifier || "IVR-FMR-XXXX"}</span>
+              </div>
+              <div className="h-6 w-px bg-gray-200 hidden sm:block"></div>
+              <div>
+                <span className="text-gray-400 block text-[10px]">LINKED MOBILE</span>
+                <span className="font-bold text-gray-900">{ivrData?.registered_mobile || farmerData?.users?.phone || "N/A"}</span>
+              </div>
+              <div className="h-6 w-px bg-gray-200 hidden sm:block"></div>
+              <div>
+                <span className="text-gray-400 block text-[10px]">HELPLINE IVR NUMBER</span>
+                <span className="font-bold text-gray-900">{ivrData?.ivr_phone_number || "1800-425-AGRI (1800-425-2474)"}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIsIVRModalOpen(true)}
+          className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-xl shadow transition-colors flex items-center justify-center gap-2 text-sm shrink-0"
+        >
+          <Phone className="w-4 h-4" /> View IVR Menu
+        </button>
+      </div>
 
       {status !== 'Approved' && (
         <div className="mb-6 bg-amber-50 border border-amber-200 p-4 rounded-xl flex flex-col shadow-sm">
@@ -1122,6 +1185,13 @@ export default function FarmerDashboard() {
       <MarketAnalysisModal
         isOpen={isMarketModalOpen}
         onClose={() => setIsMarketModalOpen(false)}
+      />
+
+      {/* IVR Interactive Menu & Access Modal */}
+      <FarmerIVRMenuModal
+        isOpen={isIVRModalOpen}
+        onClose={() => setIsIVRModalOpen(false)}
+        ivrData={ivrData}
       />
     </div>
     </div>
