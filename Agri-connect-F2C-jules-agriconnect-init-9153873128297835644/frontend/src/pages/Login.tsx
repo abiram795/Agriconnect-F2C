@@ -140,38 +140,38 @@ export default function Login({ role, onLogin }: LoginProps) {
       </div>
 
       {/* Right side login form */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4 text-primary">
-              <User className="w-8 h-8" />
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-5 sm:p-8">
+          <div className="text-center mb-6 sm:mb-8">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 text-primary">
+              <User className="w-7 h-7 sm:w-8 sm:h-8" />
             </div>
-            <h2 className="text-3xl font-bold text-gray-800">{config.formTitle}</h2>
-            <p className="text-gray-500 mt-2">{config.formDesc}</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">{config.formTitle}</h2>
+            <p className="text-sm sm:text-base text-gray-500 mt-1">{config.formDesc}</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={handleLogin} className="space-y-5 sm:space-y-6">
             {errorMsg && (
-              <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm border border-red-200">
+              <div className="bg-red-50 text-red-700 p-3.5 rounded-xl text-sm font-medium border border-red-200">
                 {errorMsg}
               </div>
             )}
             <div>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                   <Phone className="w-5 h-5 text-gray-400" />
                 </div>
                 <input
                   type="text"
                   placeholder={role === "hub" ? "Email / Username (e.g. hub@agriconnect.demo)" : "Mobile Number (e.g. 9876543210)"}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition"
+                  className="w-full pl-11 pr-4 py-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition text-base"
                   value={mobile}
                   onChange={(e) => setMobile(e.target.value)}
                   required
                 />
               </div>
               {role === "hub" && (
-                <div className="mt-2 text-xs bg-emerald-50 border border-emerald-200 text-emerald-900 p-2.5 rounded-lg space-y-0.5">
+                <div className="mt-2 text-xs bg-emerald-50 border border-emerald-200 text-emerald-900 p-3 rounded-xl space-y-1">
                   <p className="font-bold">SIH Demo Hub Credentials:</p>
                   <p>• Username/Email: <code className="bg-emerald-100 px-1 py-0.5 rounded font-mono font-bold">hub@agriconnect.demo</code></p>
                   <p>• Password: <code className="bg-emerald-100 px-1 py-0.5 rounded font-mono font-bold">AgriHub@2026</code></p>
@@ -182,20 +182,20 @@ export default function Login({ role, onLogin }: LoginProps) {
 
             <div>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                   <Lock className="w-5 h-5 text-gray-400" />
                 </div>
                 <input
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
-                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition"
+                  className="w-full pl-11 pr-12 py-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition text-base"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-gray-600 min-h-[44px] min-w-[44px] justify-center"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -204,7 +204,7 @@ export default function Login({ role, onLogin }: LoginProps) {
             </div>
 
             <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center text-gray-600 cursor-pointer">
+              <label className="flex items-center text-gray-600 cursor-pointer min-h-[44px]">
                 <input type="checkbox" className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary mr-2" />
                 Remember me
               </label>
@@ -213,13 +213,13 @@ export default function Login({ role, onLogin }: LoginProps) {
 
             <button
               type="submit"
-              className="w-full bg-primary text-white py-3 rounded-lg font-medium hover:bg-primary-dark transition flex items-center justify-center"
+              className="w-full bg-primary text-white py-3.5 rounded-xl font-bold hover:bg-primary-dark transition flex items-center justify-center text-base min-h-[44px] shadow-sm"
             >
               Login <span className="ml-2">→</span>
             </button>
           </form>
 
-          <div className="mt-8 bg-green-50 p-4 rounded-xl flex items-start space-x-4">
+          <div className="mt-6 sm:mt-8 bg-green-50 p-4 rounded-xl flex items-start space-x-3.5">
             <div className="bg-green-100 p-2 rounded-full text-primary flex-shrink-0">
               <Leaf className="w-5 h-5" />
             </div>
@@ -227,11 +227,11 @@ export default function Login({ role, onLogin }: LoginProps) {
               <h4 className="font-semibold text-gray-800 text-sm">
                 {role === "hub" ? "AgriConnect Hub Operations" : "New to AgriConnect?"}
               </h4>
-              <p className="text-sm text-gray-600 mt-1 mb-3">{config.registerText}</p>
+              <p className="text-xs sm:text-sm text-gray-600 mt-1 mb-3">{config.registerText}</p>
               {role !== "hub" && (
                 <Link
                   to={config.registerLink}
-                  className="inline-block px-4 py-2 border border-gray-300 bg-white rounded-lg text-sm font-medium hover:bg-gray-50 transition"
+                  className="inline-block px-4 py-2 border border-gray-300 bg-white rounded-lg text-sm font-bold text-gray-800 hover:bg-gray-50 transition min-h-[44px] leading-6"
                 >
                   Register Now →
                 </Link>
@@ -241,5 +241,6 @@ export default function Login({ role, onLogin }: LoginProps) {
         </div>
       </div>
     </div>
+
   );
 }
