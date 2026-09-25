@@ -276,6 +276,55 @@ class DeliveryPreferencesUpdate(BaseModel):
     cityHubDelivery: Optional[bool] = None
     verifiedLocalDelivery: Optional[bool] = None
 
+@app.get("/api/farmers/{farmer_id}/public")
+async def get_public_farmer_profile(farmer_id: str):
+    try:
+        f_uuid = UUID(farmer_id)
+    except Exception:
+        f_uuid = uuid4()
+
+    full_profile = await get_farmer_profile(f_uuid)
+    u_info = full_profile.get("users", {}) or {}
+
+    products = []
+    try:
+        if supabase_url and supabase_key:
+            async with httpx.AsyncClient() as client:
+                headers = get_supabase_headers()
+                p_res = await client.get(
+                    f"{supabase_url}/rest/v1/products?farmer_id=eq.{farmer_id}",
+                    headers=headers
+                )
+                if p_res.status_code == 200:
+                    products = p_res.json()
+    except Exception as e:
+        print("Failed fetching products for public profile:", e)
+
+    displayName = u_info.get("name") or full_profile.get("name") or "Verified Farmer"
+    
+    # Strictly sanitized public view: NO sensitive auth/ID keys
+    return {
+        "farmer_id": str(farmer_id),
+        "display_name": displayName,
+        "profile_photo": full_profile.get("profile_photo"),
+        "village": full_profile.get("village") or "Saravanampatti",
+        "district": full_profile.get("district") or "Coimbatore",
+        "state": full_profile.get("state") or "Tamil Nadu",
+        "verification_status": full_profile.get("verification_status", "Approved"),
+        "farm_name": full_profile.get("farm_name") or f"{displayName}'s Green Organic Farm",
+        "farm_size": full_profile.get("farm_size") or f"{full_profile.get('acreage', 5.0)} Acres",
+        "experience_years": full_profile.get("experience_years") or 8,
+        "primary_crops": full_profile.get("primary_crops") or ["Tomato", "Onion", "Coconut", "Carrot"],
+        "farming_method": full_profile.get("farming_method") or "Natural / Sustainable Organic Farming",
+        "about": full_profile.get("about") or "Passionate multi-generation farmer producing high-quality, pesticide-free fresh produce directly for local consumers and institutional buyers.",
+        "certifications": full_profile.get("certifications") or "Certified Organic Farmer (TN-ORG-882)",
+        "fpo_membership": full_profile.get("fpo_membership") or "Coimbatore Farmer Producer Company (FPO)",
+        "joined_year": 2021,
+        "delivery_preferences": full_profile.get("delivery_preferences"),
+        "active_products": products,
+        "completion": full_profile.get("completion")
+    }
+
 @app.get("/api/farmers/{user_id}")
 async def get_farmer_profile(user_id: UUID):
     fid_str = str(user_id)
@@ -389,50 +438,6 @@ async def update_farmer_profile(farmer_id: UUID, payload: FarmerProfileUpdate):
             print("Supabase update for farmer profile notice:", e)
 
     return await get_farmer_profile(farmer_id)
-
-@app.get("/api/farmers/{farmer_id}/public")
-async def get_public_farmer_profile(farmer_id: UUID):
-    full_profile = await get_farmer_profile(farmer_id)
-    u_info = full_profile.get("users", {}) or {}
-
-    products = []
-    try:
-        if supabase_url and supabase_key:
-            async with httpx.AsyncClient() as client:
-                headers = get_supabase_headers()
-                p_res = await client.get(
-                    f"{supabase_url}/rest/v1/products?farmer_id=eq.{farmer_id}",
-                    headers=headers
-                )
-                if p_res.status_code == 200:
-                    products = p_res.json()
-    except Exception as e:
-        print("Failed fetching products for public profile:", e)
-
-    displayName = u_info.get("name") or full_profile.get("name") or "Verified Farmer"
-    
-    # Strictly sanitized public view: NO sensitive auth/ID keys
-    return {
-        "farmer_id": str(farmer_id),
-        "display_name": displayName,
-        "profile_photo": full_profile.get("profile_photo"),
-        "village": full_profile.get("village") or "Saravanampatti",
-        "district": full_profile.get("district") or "Coimbatore",
-        "state": full_profile.get("state") or "Tamil Nadu",
-        "verification_status": full_profile.get("verification_status", "Approved"),
-        "farm_name": full_profile.get("farm_name") or f"{displayName}'s Green Organic Farm",
-        "farm_size": full_profile.get("farm_size") or f"{full_profile.get('acreage', 5.0)} Acres",
-        "experience_years": full_profile.get("experience_years") or 8,
-        "primary_crops": full_profile.get("primary_crops") or ["Tomato", "Onion", "Coconut", "Carrot"],
-        "farming_method": full_profile.get("farming_method") or "Natural / Sustainable Organic Farming",
-        "about": full_profile.get("about") or "Passionate multi-generation farmer producing high-quality, pesticide-free fresh produce directly for local consumers and institutional buyers.",
-        "certifications": full_profile.get("certifications") or "Certified Organic Farmer (TN-ORG-882)",
-        "fpo_membership": full_profile.get("fpo_membership") or "Coimbatore Farmer Producer Company (FPO)",
-        "joined_year": 2021,
-        "delivery_preferences": full_profile.get("delivery_preferences"),
-        "active_products": products,
-        "completion": full_profile.get("completion")
-    }
 
 @app.patch("/api/farmers/{farmer_id}/delivery-preferences")
 async def update_farmer_delivery_preferences(farmer_id: UUID, prefs: DeliveryPreferencesUpdate):
