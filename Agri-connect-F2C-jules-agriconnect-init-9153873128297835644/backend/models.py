@@ -197,3 +197,57 @@ class HubSaleReceiptCreate(BaseModel):
     payment_status: Optional[str] = "PAID"
     worker_id: Optional[str] = None
 
+class FPOLotCreate(BaseModel):
+    farmer_id: Optional[UUID] = None
+    fpo_name: Optional[str] = None
+    crop_name: str
+    variety: str = "Standard"
+    grade: str = "Grade A"  # "Grade A (Export)", "Grade B (Standard)", "Grade C (Processing)"
+    quantity_quintals: float
+    moisture_percentage: Optional[float] = 12.0
+    certification: Optional[str] = "Organic Certified"  # "Organic Certified", "Pesticide Free", "Standard GAP"
+    packaging_type: str = "Jute Bags"  # "Jute Bags", "Plastic Crates", "Bulk Mesh"
+    reserve_price_per_quintal: float
+    expected_harvest_date: str
+    location_district: str
+    location_state: str
+    storage_type: str = "Farm Gate"  # "Farm Gate", "Cold Storage Hub", "Mandi Warehouse"
+    images: List[str] = []
+
+class FPOLotResponse(FPOLotCreate):
+    id: UUID
+    status: str = "Open for Bidding"
+    created_at: str
+
+class BuyerBidCreate(BaseModel):
+    lot_id: UUID
+    buyer_id: UUID
+    buyer_name: str
+    buyer_type: str  # "Processor", "Institutional Buyer", "Wholesale Trader", "Exporter"
+    bid_price_per_quintal: float
+    offered_quantity_quintals: float
+    payment_terms: str = "Escrow on Delivery"  # "Instant Bank Transfer", "7-Day Escrow", "Pay on Inspection"
+    delivery_location: str
+    notes: Optional[str] = None
+
+class BuyerBidResponse(BuyerBidCreate):
+    id: UUID
+    status: str = "Pending Review"  # "Pending Review", "Accepted", "Rejected", "Countered"
+    created_at: str
+
+class DisputeCreate(BaseModel):
+    order_id: Optional[UUID] = None
+    lot_id: Optional[UUID] = None
+    complainant_id: UUID
+    complainant_role: str  # "farmer", "consumer", "buyer", "delivery"
+    issue_category: str  # "Quality Mismatch", "Weight Variance", "Transit Damage", "Payment Delay", "Other"
+    description: str
+    evidence_urls: List[str] = []
+
+class DisputeResponse(DisputeCreate):
+    id: UUID
+    status: str = "Open"  # "Open", "Under Review", "Resolved", "Rejected"
+    resolution_notes: Optional[str] = None
+    created_at: str
+
+

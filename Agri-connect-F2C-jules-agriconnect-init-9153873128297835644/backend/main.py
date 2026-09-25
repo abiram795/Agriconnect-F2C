@@ -3014,8 +3014,325 @@ async def create_hub_consumer_order(payload: dict):
         return created_order
 
 # -----------------------------------------------------------------------------
-# HUB RECEIPT AND BILLING SYSTEM ENDPOINTS
+# FPO LOT CREATION & AGGREGATION ENDPOINTS
 # -----------------------------------------------------------------------------
+
+FPO_LOTS_DB: Dict[str, dict] = {}
+BUYER_BIDS_DB: Dict[str, dict] = {}
+DISPUTES_DB: Dict[str, dict] = {}
+
+# Sample Initial Seed Lots for Demo & Testing
+SEED_LOT_1 = {
+    "id": "l0000000-0000-0000-0000-000000000001",
+    "farmer_id": "f0000000-0000-0000-0000-000000000001",
+    "fpo_name": "Kongu Farmer Producer Co. Ltd.",
+    "crop_name": "Tomato",
+    "variety": "Hybrid Red",
+    "grade": "Grade A (Export)",
+    "quantity_quintals": 150.0,
+    "moisture_percentage": 11.5,
+    "certification": "Organic Certified",
+    "packaging_type": "Plastic Crates",
+    "reserve_price_per_quintal": 3200.0,
+    "expected_harvest_date": "2026-09-28",
+    "location_district": "Coimbatore",
+    "location_state": "Tamil Nadu",
+    "storage_type": "Cold Storage Hub",
+    "images": ["https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=600"],
+    "status": "Open for Bidding",
+    "created_at": datetime.now().isoformat()
+}
+FPO_LOTS_DB[SEED_LOT_1["id"]] = SEED_LOT_1
+
+@app.post("/api/lots")
+async def create_fpo_lot(lot: FPOLotCreate):
+    lot_id = str(uuid4())
+    now_iso = datetime.now().isoformat()
+    record = {
+        **lot.model_dump(),
+        "id": lot_id,
+        "farmer_id": str(lot.farmer_id) if lot.farmer_id else "f0000000-0000-0000-0000-000000000001",
+        "status": "Open for Bidding",
+        "created_at": now_iso
+    }
+    FPO_LOTS_DB[lot_id] = record
+    return record
+
+@app.get("/api/lots")
+async def list_fpo_lots(crop_name: Optional[str] = None, district: Optional[str] = None):
+    lots = list(FPO_LOTS_DB.values())
+    if crop_name:
+        lots = [l for l in lots if crop_name.lower() in l.get("crop_name", "").lower()]
+    if district:
+        lots = [l for l in lots if district.lower() in l.get("location_district", "").lower()]
+    return sorted(lots, key=lambda x: x.get("created_at", ""), reverse=True)
+
+# -----------------------------------------------------------------------------
+# DIGITAL BIDDING & COUNTER-OFFERS ENDPOINTS
+# -----------------------------------------------------------------------------
+
+SEED_BID_1 = {
+    "id": "b0000000-0000-0000-0000-000000000001",
+    "lot_id": "l0000000-0000-0000-0000-000000000001",
+    "buyer_id": "u0000000-0000-0000-0000-000000000002",
+    "buyer_name": "FreshFoods Retail Processing Ltd.",
+    "buyer_type": "Processor",
+    "bid_price_per_quintal": 3450.0,
+    "offered_quantity_quintals": 100.0,
+    "payment_terms": "Escrow on Delivery",
+    "delivery_location": "Coimbatore Processing Hub",
+    "notes": "Ready to pick up lot within 48 hours upon approval.",
+    "status": "Pending Review",
+    "created_at": datetime.now().isoformat()
+}
+BUYER_BIDS_DB[SEED_BID_1["id"]] = SEED_BID_1
+
+@app.post("/api/bids")
+async def create_buyer_bid(bid: BuyerBidCreate):
+    bid_id = str(uuid4())
+    now_iso = datetime.now().isoformat()
+    record = {
+        **bid.model_dump(),
+        "id": bid_id,
+        "lot_id": str(bid.lot_id),
+        "buyer_id": str(bid.buyer_id),
+        "status": "Pending Review",
+        "created_at": now_iso
+    }
+    BUYER_BIDS_DB[bid_id] = record
+    return record
+
+@app.get("/api/bids")
+async def list_buyer_bids(lot_id: Optional[str] = None, buyer_id: Optional[str] = None):
+    bids = list(BUYER_BIDS_DB.values())
+    if lot_id:
+        bids = [b for b in bids if b.get("lot_id") == lot_id]
+    if buyer_id:
+        bids = [b for b in bids if b.get("buyer_id") == buyer_id]
+    return sorted(bids, key=lambda x: x.get("created_at", ""), reverse=True)
+
+class BidStatusUpdate(BaseModel):
+    status: str  # "Accepted", "Rejected", "Countered"
+    counter_price_per_quintal: Optional[float] = None
+
+@app.patch("/api/bids/{bid_id}/status")
+async def update_bid_status(bid_id: str, update_data: BidStatusUpdate):
+    if bid_id not in BUYER_BIDS_DB:
+        raise HTTPException(status_code=404, detail="Bid not found")
+    bid = BUYER_BIDS_DB[bid_id]
+    bid["status"] = update_data.status
+    if update_data.counter_price_per_quintal:
+        bid["counter_price_per_quintal"] = update_data.counter_price_per_quintal
+    return {"status": "success", "bid": bid}
+
+# -----------------------------------------------------------------------------
+# SMART BUYER SOURCING & BUYER CREDENTIALS
+# -----------------------------------------------------------------------------
+
+MATCHED_BUYERS_SEED = [
+    {
+        "id": "b001",
+        "name": "Reliance Fresh Sourcing Hub",
+        "buyer_type": "Institutional Buyer",
+        "badge": "Verified Institutional Buyer",
+        "reliability_rating": 4.9,
+        "district": "Coimbatore",
+        "state": "Tamil Nadu",
+        "looking_for": ["Tomato", "Onion", "Potato"],
+        "min_grade_required": "Grade B (Standard)",
+        "preferred_quantity_range": "50 – 500 Quintals",
+        "payment_safety_record": "100% On-Time (Escrow Protected)",
+        "distance_km": 14,
+        "match_percentage": 98
+    },
+    {
+        "id": "b002",
+        "name": "Nilgiri Agro Food Processors",
+        "buyer_type": "Food Processor",
+        "badge": "Verified Food Processor",
+        "reliability_rating": 4.8,
+        "district": "Tiruppur",
+        "state": "Tamil Nadu",
+        "looking_for": ["Tomato", "Carrot", "Cabbage"],
+        "min_grade_required": "Grade A (Export)",
+        "preferred_quantity_range": "100 – 1000 Quintals",
+        "payment_safety_record": "Direct Bank Transfer within 24 Hours",
+        "distance_km": 38,
+        "match_percentage": 92
+    },
+    {
+        "id": "b003",
+        "name": "Kannan Wholesale Traders",
+        "buyer_type": "Wholesale Mandi Trader",
+        "badge": "Verified Mandi Trader",
+        "reliability_rating": 4.6,
+        "district": "Coimbatore",
+        "state": "Tamil Nadu",
+        "looking_for": ["Onion", "Potato", "Bhindi(Ladies Finger)"],
+        "min_grade_required": "Grade B (Standard)",
+        "preferred_quantity_range": "20 – 200 Quintals",
+        "payment_safety_record": "Instant Cash / UPI on Delivery",
+        "distance_km": 8,
+        "match_percentage": 89
+    }
+]
+
+@app.get("/api/buyers/matched")
+async def get_matched_buyers(crop: Optional[str] = None, district: Optional[str] = None):
+    buyers = MATCHED_BUYERS_SEED
+    if crop:
+        c_clean = crop.lower()
+        buyers = [b for b in buyers if any(c_clean in k.lower() for k in b["looking_for"])]
+    if district:
+        d_clean = district.lower()
+        buyers = [b for b in buyers if d_clean in b["district"].lower()]
+    return buyers or MATCHED_BUYERS_SEED
+
+# -----------------------------------------------------------------------------
+# STORAGE HUBS & LOGISTICS DIRECTORY
+# -----------------------------------------------------------------------------
+
+STORAGE_HUBS_SEED = [
+    {
+        "id": "sh001",
+        "name": "Coimbatore Cold Storage & Aggregation Hub",
+        "type": "Controlled Atmosphere Storage",
+        "location": "Coimbatore Industrial Area",
+        "district": "Coimbatore",
+        "capacity_total_tons": 5000,
+        "capacity_available_tons": 1850,
+        "rate_per_quintal_per_day": 8.50,
+        "contact_phone": "+91 94432 10987",
+        "facilities": ["Temperature Controlled (4-8°C)", "Humidity Monitor", "Forklift Loading", "CCTV Security"]
+    },
+    {
+        "id": "sh002",
+        "name": "Pollachi Agri Warehousing & Dry Storage",
+        "type": "Standard Warehouse",
+        "location": "Pollachi Main Road",
+        "district": "Coimbatore",
+        "capacity_total_tons": 3000,
+        "capacity_available_tons": 1200,
+        "rate_per_quintal_per_day": 4.00,
+        "contact_phone": "+91 94421 87654",
+        "facilities": ["Dry Ventilation", "Pest Control Certified", "Weighbridge Facility"]
+    }
+]
+
+@app.get("/api/logistics/storage-hubs")
+async def get_storage_hubs(district: Optional[str] = None):
+    if district:
+        filtered = [h for h in STORAGE_HUBS_SEED if district.lower() in h["district"].lower()]
+        return filtered or STORAGE_HUBS_SEED
+    return STORAGE_HUBS_SEED
+
+# -----------------------------------------------------------------------------
+# DISPUTE & GRIEVANCE RESOLUTION ENDPOINTS
+# -----------------------------------------------------------------------------
+
+SEED_DISPUTE_1 = {
+    "id": "d0000000-0000-0000-0000-000000000001",
+    "complainant_id": "f0000000-0000-0000-0000-000000000001",
+    "complainant_role": "farmer",
+    "issue_category": "Payment Delay",
+    "description": "Payment for Order #ORD-8821 not received within agreed 24-hour escrow window.",
+    "evidence_urls": [],
+    "status": "Under Review",
+    "resolution_notes": "Assigned to Admin Team. Verification underway with buyer payment portal.",
+    "created_at": datetime.now().isoformat()
+}
+DISPUTES_DB[SEED_DISPUTE_1["id"]] = SEED_DISPUTE_1
+
+@app.post("/api/disputes")
+async def create_dispute(dispute: DisputeCreate):
+    d_id = str(uuid4())
+    now_iso = datetime.now().isoformat()
+    record = {
+        **dispute.model_dump(),
+        "id": d_id,
+        "complainant_id": str(dispute.complainant_id),
+        "order_id": str(dispute.order_id) if dispute.order_id else None,
+        "lot_id": str(dispute.lot_id) if dispute.lot_id else None,
+        "status": "Open",
+        "resolution_notes": None,
+        "created_at": now_iso
+    }
+    DISPUTES_DB[d_id] = record
+    return record
+
+@app.get("/api/disputes")
+async def list_disputes(user_id: Optional[str] = None):
+    disputes = list(DISPUTES_DB.values())
+    if user_id:
+        disputes = [d for d in disputes if d.get("complainant_id") == user_id]
+    return sorted(disputes, key=lambda x: x.get("created_at", ""), reverse=True)
+
+class DisputeStatusUpdate(BaseModel):
+    status: str  # "Under Review", "Resolved", "Rejected"
+    resolution_notes: str
+
+@app.patch("/api/disputes/{dispute_id}/resolve")
+async def resolve_dispute(dispute_id: str, update: DisputeStatusUpdate):
+    if dispute_id not in DISPUTES_DB:
+        raise HTTPException(status_code=404, detail="Dispute record not found")
+    d = DISPUTES_DB[dispute_id]
+    d["status"] = update.status
+    d["resolution_notes"] = update.resolution_notes
+    return {"status": "success", "dispute": d}
+
+# -----------------------------------------------------------------------------
+# LOCALIZED SALE-WINDOW ADVISOR ENDPOINT
+# -----------------------------------------------------------------------------
+
+@app.get("/api/market-intelligence/sale-advisor")
+async def get_sale_window_advice(commodity: str = "Tomato", district: str = "Coimbatore", quantity_quintals: float = 50.0):
+    # Retrieve current mandi price analysis
+    analysis = await get_today_market_analysis(commodity=commodity)
+    current_modal = analysis.modal_price_kg or 32.0
+    current_quintal = current_modal * 100.0
+
+    # Trend calculations
+    trend = analysis.price_trend
+    if trend == "Rising":
+        expected_price_change_pct = 6.5
+        recommendation = "HOLD & STORE (3–5 Days)"
+        reasoning = (
+            f"Arrival volumes in {analysis.primary_market or 'nearby mandis'} have decreased by 12% over the last 3 days, "
+            f"causing prices to trend upwards. Cold storage costs (~₹8.50/quintal/day) are significantly lower than expected price gains (+₹{round(current_quintal * 0.065)}/quintal)."
+        )
+    elif trend == "Falling":
+        expected_price_change_pct = -4.0
+        recommendation = "SELL IMMEDIATELY"
+        reasoning = (
+            f"High arrival influx expected in regional mandis over the next 48 hours. "
+            f"Selling immediately avoids post-harvest decay and protects current price realization of ₹{current_modal:.1f}/kg."
+        )
+    else:
+        expected_price_change_pct = 1.5
+        recommendation = "BALANCED SALE / PARTIAL HOLD"
+        reasoning = (
+            f"Market prices remain stable at ₹{current_modal:.1f}/kg. Consider selling 60% of current inventory immediately "
+            f"to meet liquidity needs, and holding 40% in cold storage for institutional buyer procurement."
+        )
+
+    return {
+        "commodity": commodity,
+        "district": district,
+        "current_modal_price_kg": current_modal,
+        "current_price_per_quintal": current_quintal,
+        "price_trend": trend,
+        "recommendation": recommendation,
+        "expected_price_change_pct": expected_price_change_pct,
+        "storage_cost_per_day_quintal": 8.50,
+        "net_gain_estimate_per_quintal": round(current_quintal * (expected_price_change_pct / 100.0) - (8.50 * 4), 2),
+        "advisor_reasoning": reasoning
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
+
 
 HUB_INCOMING_RECEIPTS_DB: Dict[str, dict] = {}
 HUB_SALES_RECEIPTS_DB: Dict[str, dict] = {}
