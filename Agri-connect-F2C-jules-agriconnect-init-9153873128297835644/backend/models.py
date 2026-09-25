@@ -45,6 +45,34 @@ class FarmerProfile(BaseModel):
     delivery_radius_km: int = 0
     admin_remarks: Optional[str] = None
     delivery_preferences: Optional[DeliveryPreferences] = None
+    profile_photo: Optional[str] = None
+    farm_name: Optional[str] = None
+    pincode: Optional[str] = None
+    experience_years: Optional[int] = None
+    primary_crops: Optional[List[str]] = None
+    farming_method: Optional[str] = None
+    about: Optional[str] = None
+    certifications: Optional[str] = None
+    fpo_membership: Optional[str] = None
+
+class FarmerProfileUpdate(BaseModel):
+    profile_photo: Optional[str] = None
+    name: Optional[str] = None
+    farm_name: Optional[str] = None
+    village: Optional[str] = None
+    district: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    farm_size: Optional[str] = None
+    acreage: Optional[float] = None
+    experience_years: Optional[int] = None
+    primary_crops: Optional[List[str]] = None
+    farming_method: Optional[str] = None
+    about: Optional[str] = None
+    languages: Optional[str] = None
+    certifications: Optional[str] = None
+    fpo_membership: Optional[str] = None
+    delivery_preferences: Optional[DeliveryPreferences] = None
 
 class VerificationAction(BaseModel):
     action: str # "Approve", "Reject", "Request Correction"

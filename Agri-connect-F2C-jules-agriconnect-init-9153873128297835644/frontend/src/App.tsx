@@ -24,6 +24,7 @@ import Transactions from "./pages/Transactions";
 import FarmerListings from "./pages/FarmerListings";
 import OrdersList from "./pages/OrdersList";
 import FarmerDecisionCenter from "./pages/FarmerDecisionCenter";
+import PublicFarmerProfile from "./pages/PublicFarmerProfile";
 
 function App() {
   return (
@@ -39,6 +40,7 @@ function App() {
         <Route path="/delivery-register" element={<DeliveryRegister />} />
         <Route path="/consumer-register" element={<ConsumerRegister />} />
         <Route path="/farmer" element={<FarmerDashboard />} />
+        <Route path="/farmer/profile/:farmerId" element={<PublicFarmerProfile />} />
         <Route path="/farmer/add-product" element={<FarmerAddProduct />} />
         <Route path="/consumer" element={<ConsumerHome />} />
         <Route path="/admin" element={<AdminDashboard />} />

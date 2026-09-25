@@ -1,4 +1,4 @@
-import { Search, MapPin, Star, Filter, Package } from "lucide-react";
+import { Search, MapPin, Star, Filter, Package, User } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { getApiUrl } from "../config/api";
@@ -98,7 +98,7 @@ export default function Marketplace() {
                     ₹{product.price} <span className="text-sm text-gray-500 font-semibold">/{product.unit}</span>
                   </p>
                   
-                  <div className="space-y-1.5 mb-5 flex-1">
+                  <div className="space-y-1.5 mb-4 flex-1">
                     <p className="text-sm text-gray-600 flex items-center">
                       <MapPin className="w-4 h-4 mr-1.5 text-gray-400" /> 
                       {product.farmers?.village ? `${product.farmers?.village}, ` : ''}{product.farmers?.district || 'Unknown location'}
@@ -107,6 +107,21 @@ export default function Marketplace() {
                       <Package className="w-4 h-4 mr-1.5 text-gray-400" /> 
                       Available: <span className="font-bold ml-1">{product.quantity_available} {product.unit}</span>
                     </p>
+                    <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-xs mt-2">
+                      <Link
+                        to={`/farmer/profile/${product.farmer_id}`}
+                        className="flex items-center gap-1.5 text-emerald-800 font-bold hover:underline"
+                      >
+                        <User className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Farmer: {product.farmers?.users?.name || "Abiram S"}</span>
+                      </Link>
+                      <Link
+                        to={`/farmer/profile/${product.farmer_id}`}
+                        className="text-[11px] font-extrabold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg hover:bg-blue-100 transition-colors"
+                      >
+                        View Profile
+                      </Link>
+                    </div>
                   </div>
                   
                   <button 

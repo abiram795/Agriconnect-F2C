@@ -1,4 +1,4 @@
-import { Package, TrendingUp, Plus, ShieldCheck, CheckCircle, AlertTriangle, User, Users, ArrowLeft, Bell, MapPin, DollarSign, Activity, Navigation, Truck, Star, X, BarChart2, Phone, Info } from "lucide-react";
+import { Package, TrendingUp, Plus, ShieldCheck, CheckCircle, AlertTriangle, User, Users, ArrowLeft, Bell, MapPin, DollarSign, Activity, Navigation, Truck, Star, X, BarChart2, Phone, Info, Camera, Eye, Edit } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { getApiUrl } from "../config/api";
@@ -37,6 +37,26 @@ export default function FarmerDashboard() {
   const [hubTransferMessage, setHubTransferMessage] = useState("");
   const [profileTab, setProfileTab] = useState<"profile" | "farm" | "verification" | "selling" | "delivery" | "account">("profile");
   const [showReVerificationNotice, setShowReVerificationNotice] = useState(false);
+
+  // Extended Profile & Photo State
+  const [profilePhoto, setProfilePhoto] = useState<string>("");
+  const [editName, setEditName] = useState<string>("");
+  const [editFarmName, setEditFarmName] = useState<string>("");
+  const [editVillage, setEditVillage] = useState<string>("");
+  const [editDistrict, setEditDistrict] = useState<string>("");
+  const [editState, setEditState] = useState<string>("");
+  const [editPincode, setEditPincode] = useState<string>("");
+  const [editFarmSize, setEditFarmSize] = useState<string>("");
+  const [editAcreage, setEditAcreage] = useState<string>("");
+  const [editExperience, setEditExperience] = useState<string>("");
+  const [editPrimaryCrops, setEditPrimaryCrops] = useState<string>("");
+  const [editFarmingMethod, setEditFarmingMethod] = useState<string>("");
+  const [editAbout, setEditAbout] = useState<string>("");
+  const [editCertifications, setEditCertifications] = useState<string>("");
+  const [editFPOMembership, setEditFPOMembership] = useState<string>("");
+  const [editLanguages, setEditLanguages] = useState<string>("");
+  const [isSavingProfile, setIsSavingProfile] = useState<boolean>(false);
+  const [profileSaveNotice, setProfileSaveNotice] = useState<string>("");
 
   // Delivery Preferences State
   const [deliveryPrefs, setDeliveryPrefs] = useState<{
@@ -79,8 +99,27 @@ export default function FarmerDashboard() {
       if (res.ok) {
         const data = await res.json();
         setFarmerData(data);
-        if (data && data.delivery_preferences) {
-          setDeliveryPrefs(data.delivery_preferences);
+        if (data) {
+          setProfilePhoto(data.profile_photo || "");
+          setEditName(data.users?.name || data.name || "Abiram S");
+          setEditFarmName(data.farm_name || "Green Organic Farm");
+          setEditVillage(data.village || "Saravanampatti");
+          setEditDistrict(data.district || "Coimbatore");
+          setEditState(data.state || "Tamil Nadu");
+          setEditPincode(data.pincode || "641035");
+          setEditFarmSize(data.farm_size || "5 Acres");
+          setEditAcreage(data.acreage ? String(data.acreage) : "5");
+          setEditExperience(data.experience_years ? String(data.experience_years) : "8");
+          setEditPrimaryCrops(Array.isArray(data.primary_crops) ? data.primary_crops.join(", ") : (data.primary_crops || "Tomato, Onion, Coconut"));
+          setEditFarmingMethod(data.farming_method || "Natural / Sustainable Organic Farming");
+          setEditAbout(data.about || "Passionate farmer delivering fresh, locally grown chemical-free produce directly from farm to consumers.");
+          setEditCertifications(data.certifications || "Certified Organic Farmer (TN-ORG-882)");
+          setEditFPOMembership(data.fpo_membership || "Coimbatore Farmer Producer Company (FPO)");
+          setEditLanguages(data.languages || "Tamil, English");
+
+          if (data.delivery_preferences) {
+            setDeliveryPrefs(data.delivery_preferences);
+          }
         }
         setIsLoadingDeliveryPrefs(false);
       }
@@ -174,6 +213,67 @@ export default function FarmerDashboard() {
       setTimeout(() => setPrefErrorNotice(""), 4000);
     } finally {
       setSavingPrefKey(null);
+    }
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image file size should be less than 5MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setProfilePhoto(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingProfile(true);
+    try {
+      const userId = localStorage.getItem('agriconnect_user_id');
+      const payload = {
+        name: editName,
+        profile_photo: profilePhoto,
+        farm_name: editFarmName,
+        village: editVillage,
+        district: editDistrict,
+        state: editState,
+        pincode: editPincode,
+        farm_size: editFarmSize,
+        acreage: editAcreage ? parseFloat(editAcreage) : 5.0,
+        experience_years: editExperience ? parseInt(editExperience) : 8,
+        primary_crops: editPrimaryCrops ? editPrimaryCrops.split(',').map(s => s.trim()) : [],
+        farming_method: editFarmingMethod,
+        about: editAbout,
+        certifications: editCertifications,
+        fpo_membership: editFPOMembership,
+        languages: editLanguages
+      };
+
+      const res = await fetch(getApiUrl(`/api/farmers/${userId}/profile`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setFarmerData(data);
+        setProfileSaveNotice("Profile updated successfully!");
+        setTimeout(() => setProfileSaveNotice(""), 4000);
+        fetchData();
+      } else {
+        alert("Failed to save profile updates.");
+      }
+    } catch (err) {
+      console.error("Error saving profile:", err);
+      alert("An error occurred while saving profile.");
+    } finally {
+      setIsSavingProfile(false);
     }
   };
 
@@ -327,22 +427,61 @@ export default function FarmerDashboard() {
         </button>
         
         {/* Profile Top Summary Banner */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-gray-100">
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-gray-100">
+            
+            {/* Avatar & Basic Info */}
             <div className="flex items-center gap-4">
-              <div className="p-4 bg-emerald-100 rounded-full text-[#0B6B3A]">
-                <User className="w-9 h-9" />
+              <div className="relative group">
+                {profilePhoto || farmerData?.profile_photo ? (
+                  <img
+                    src={profilePhoto || farmerData?.profile_photo}
+                    alt={farmerName}
+                    className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-4 border-emerald-100 shadow-md bg-white"
+                  />
+                ) : (
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-emerald-100 text-[#0B6B3A] font-black text-2xl flex items-center justify-center border-4 border-emerald-100 shadow-md">
+                    {farmerName ? farmerName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : "AS"}
+                  </div>
+                )}
+                <label className="absolute bottom-0 right-0 bg-emerald-700 hover:bg-emerald-800 text-white p-2 rounded-full cursor-pointer shadow-md transition-all">
+                  <Camera className="w-4 h-4" />
+                  <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                </label>
               </div>
+
               <div>
-                <h1 className="text-3xl font-black text-gray-900">{farmerName}</h1>
-                <p className="text-sm font-semibold text-gray-500">{farmerData?.village}, {farmerData?.district}, {farmerData?.state}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-2xl sm:text-3xl font-black text-gray-900">{farmerName}</h1>
+                  <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-black flex items-center">
+                    <ShieldCheck className="w-4 h-4 mr-1 text-emerald-600"/> {farmerData?.verification_status || status}
+                  </span>
+                </div>
+                <p className="text-sm font-semibold text-gray-500 mt-1">{farmerData?.village || editVillage}, {farmerData?.district || editDistrict}, {farmerData?.state || editState}</p>
+                <p className="text-xs text-emerald-800 font-bold mt-1">🌾 {editFarmName} • {editFarmSize}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="px-3.5 py-1.5 bg-emerald-100 text-emerald-800 rounded-full text-sm font-bold flex items-center">
-                <ShieldCheck className="w-4 h-4 mr-1.5 text-emerald-600"/> {farmerData?.verification_status || status}
-              </span>
+
+            {/* Profile Completion Meter & Public Profile Action */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-200">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-3 text-xs font-bold text-gray-700">
+                  <span>Profile Completion</span>
+                  <span className="text-[#0B6B3A] font-black">{farmerData?.completion?.percentage || 70}% ({farmerData?.completion?.status_label || "Almost Complete"})</span>
+                </div>
+                <div className="w-44 bg-gray-200 h-2.5 rounded-full overflow-hidden">
+                  <div className="bg-[#0B6B3A] h-full rounded-full transition-all duration-500" style={{ width: `${farmerData?.completion?.percentage || 70}%` }}></div>
+                </div>
+              </div>
+
+              <Link
+                to={`/farmer/profile/${localStorage.getItem('agriconnect_user_id')}`}
+                className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow transition-colors flex items-center gap-1.5 shrink-0"
+              >
+                <Eye className="w-4 h-4" /> Preview Public Profile
+              </Link>
             </div>
+
           </div>
 
           {/* Profile Section Navigation Tabs */}
@@ -351,7 +490,7 @@ export default function FarmerDashboard() {
               onClick={() => setProfileTab("profile")}
               className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors ${profileTab === "profile" ? "bg-[#0B6B3A] text-white shadow" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
             >
-              MY PROFILE
+              MY PROFILE & EDIT
             </button>
             <button
               onClick={() => setProfileTab("farm")}
@@ -386,18 +525,151 @@ export default function FarmerDashboard() {
           </div>
         </div>
 
-        {/* TAB 1: MY PROFILE */}
+        {/* TAB 1: MY PROFILE & EDIT FORM */}
         {profileTab === "profile" && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <User className="w-5 h-5 text-[#0B6B3A]" /> My Profile Details
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm bg-gray-50 p-5 rounded-xl border border-gray-200">
-              <div><span className="text-gray-500 block text-xs">Full Name</span><span className="font-extrabold text-base text-gray-900">{farmerName}</span></div>
-              <div><span className="text-gray-500 block text-xs">Mobile Number</span><span className="font-extrabold text-base text-gray-900">{farmerData?.users?.phone}</span></div>
-              <div><span className="text-gray-500 block text-xs">Preferred Language</span><span className="font-extrabold text-base text-gray-900">{farmerData?.languages || "Tamil, English"}</span></div>
+          <form onSubmit={handleSaveProfile} className="bg-white rounded-3xl shadow-sm border border-gray-200 p-6 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-100">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <User className="w-5 h-5 text-[#0B6B3A]" /> Edit Farmer Profile
+                </h2>
+                <p className="text-xs text-gray-500 mt-1">Keep your public farmer identity up to date for buyers and partners.</p>
+              </div>
+              {profileSaveNotice && (
+                <span className="px-3.5 py-1.5 bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-bold rounded-xl flex items-center gap-1.5 animate-pulse">
+                  <CheckCircle className="w-4 h-4 text-emerald-600" /> {profileSaveNotice}
+                </span>
+              )}
             </div>
-          </div>
+
+            {/* Photo Upload Section */}
+            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 flex flex-col sm:flex-row items-center gap-4">
+              {profilePhoto ? (
+                <img src={profilePhoto} alt="Profile preview" className="w-16 h-16 rounded-full object-cover border-2 border-emerald-600 shadow" />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-emerald-100 text-[#0B6B3A] font-black text-xl flex items-center justify-center border-2 border-emerald-600">
+                  {farmerName ? farmerName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : "AS"}
+                </div>
+              )}
+              <div className="space-y-1 text-center sm:text-left">
+                <p className="font-extrabold text-sm text-gray-900">Farmer Profile Photo</p>
+                <p className="text-xs text-gray-500">Upload a clean headshot photo (Max 5MB, JPG/PNG format).</p>
+                <div className="flex items-center justify-center sm:justify-start gap-2 pt-1">
+                  <label className="bg-[#0B6B3A] hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg cursor-pointer transition-colors inline-flex items-center gap-1">
+                    <Camera className="w-3.5 h-3.5" /> Upload Photo
+                    <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                  </label>
+                  {profilePhoto && (
+                    <button type="button" onClick={() => setProfilePhoto("")} className="text-xs font-bold text-red-600 hover:underline">
+                      Remove Photo
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION A — PERSONAL INFORMATION */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-extrabold uppercase tracking-wider text-emerald-800 border-b pb-1">Section A — Personal Information</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Full Name</label>
+                  <input type="text" value={editName} onChange={e => setEditName(e.target.value)} className="w-full p-2.5 border border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Mobile Number</label>
+                  <input type="text" disabled value={farmerData?.users?.phone || "8667090635"} className="w-full p-2.5 border border-gray-200 bg-gray-100 rounded-xl text-sm font-semibold text-gray-500 cursor-not-allowed" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Preferred Languages</label>
+                  <input type="text" value={editLanguages} onChange={e => setEditLanguages(e.target.value)} placeholder="e.g. Tamil, English" className="w-full p-2.5 border border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-500" />
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION B — FARM INFORMATION */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-extrabold uppercase tracking-wider text-emerald-800 border-b pb-1">Section B — Farm Information</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Farm Name</label>
+                  <input type="text" value={editFarmName} onChange={e => setEditFarmName(e.target.value)} placeholder="e.g. Green Organic Farm" className="w-full p-2.5 border border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Village / Locality</label>
+                  <input type="text" value={editVillage} onChange={e => setEditVillage(e.target.value)} className="w-full p-2.5 border border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">District</label>
+                  <input type="text" value={editDistrict} onChange={e => setEditDistrict(e.target.value)} className="w-full p-2.5 border border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">State</label>
+                  <input type="text" value={editState} onChange={e => setEditState(e.target.value)} className="w-full p-2.5 border border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">PIN Code</label>
+                  <input type="text" value={editPincode} onChange={e => setEditPincode(e.target.value)} className="w-full p-2.5 border border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Total Acreage (Acres)</label>
+                  <input type="text" value={editAcreage} onChange={e => setEditAcreage(e.target.value)} className="w-full p-2.5 border border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Farming Experience (Years)</label>
+                  <input type="number" value={editExperience} onChange={e => setEditExperience(e.target.value)} className="w-full p-2.5 border border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Farming Method</label>
+                  <select value={editFarmingMethod} onChange={e => setEditFarmingMethod(e.target.value)} className="w-full p-2.5 border border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-500">
+                    <option value="Natural / Sustainable Organic Farming">Natural / Sustainable Organic</option>
+                    <option value="Certified Organic">Certified Organic</option>
+                    <option value="Conventional Farming">Conventional Farming</option>
+                    <option value="Hydroponic / High Tech">Hydroponic / Protected</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Primary Crops (comma separated)</label>
+                  <input type="text" value={editPrimaryCrops} onChange={e => setEditPrimaryCrops(e.target.value)} placeholder="Tomato, Onion, Coconut" className="w-full p-2.5 border border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-500" />
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION C — FARMER DETAILS & BIO */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-extrabold uppercase tracking-wider text-emerald-800 border-b pb-1">Section C — Farmer Details & Biography</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">About the Farmer (Public Biography)</label>
+                  <textarea rows={3} value={editAbout} onChange={e => setEditAbout(e.target.value)} placeholder="Write a short introduction about your farming story..." className="w-full p-2.5 border border-gray-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-emerald-500"></textarea>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Certifications</label>
+                    <input type="text" value={editCertifications} onChange={e => setEditCertifications(e.target.value)} placeholder="e.g. Certified Organic Farmer" className="w-full p-2.5 border border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">FPO Membership</label>
+                    <input type="text" value={editFPOMembership} onChange={e => setEditFPOMembership(e.target.value)} placeholder="e.g. Coimbatore Organic FPO" className="w-full p-2.5 border border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-500" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Save Button */}
+            <div className="pt-4 border-t border-gray-100 flex items-center justify-between gap-4">
+              <Link to={`/farmer/profile/${localStorage.getItem('agriconnect_user_id')}`} className="text-xs font-bold text-blue-700 hover:underline flex items-center gap-1">
+                <Eye className="w-4 h-4" /> Preview Public View
+              </Link>
+              <button
+                type="submit"
+                disabled={isSavingProfile}
+                className="bg-[#0B6B3A] hover:bg-emerald-700 text-white font-extrabold text-sm px-6 py-3 rounded-xl shadow transition-colors flex items-center gap-2"
+              >
+                {isSavingProfile ? "Saving Profile..." : "Save Profile Updates"}
+              </button>
+            </div>
+          </form>
         )}
 
         {/* TAB 2: FARM DETAILS */}
@@ -851,29 +1123,53 @@ export default function FarmerDashboard() {
 
       <div className="max-w-7xl mx-auto">
 
-        <header className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between relative">
-          <div>
-            <button onClick={() => setShowProfile(true)} className="text-3xl font-bold text-primary flex items-center hover:opacity-80 transition-opacity">
-              Welcome, {farmerName}
-              {status === 'Approved' ? (
-                <span className="ml-3 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                  <ShieldCheck className="w-4 h-4 mr-1" /> Verified
-                </span>
-              ) : status === 'Pending' ? (
-                <span className="ml-3 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-                  <AlertTriangle className="w-4 h-4 mr-1" /> Pending
-                </span>
-              ) : status === 'Correction Required' ? (
-                <span className="ml-3 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
-                  <AlertTriangle className="w-4 h-4 mr-1" /> Correction Required
-                </span>
+        {/* Header with Circular Profile Photo Avatar */}
+        <header className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 relative">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setShowProfile(true)} className="relative group shrink-0" title="Click to view & edit profile photo">
+              {profilePhoto || farmerData?.profile_photo ? (
+                <img
+                  src={profilePhoto || farmerData?.profile_photo}
+                  alt={farmerName}
+                  className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-emerald-600 shadow-md group-hover:scale-105 transition-transform bg-white"
+                />
               ) : (
-                <span className="ml-3 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
-                  <AlertTriangle className="w-4 h-4 mr-1" /> Rejected
-                </span>
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-100 text-[#0B6B3A] font-black text-xl flex items-center justify-center border-2 border-emerald-600 shadow-md group-hover:scale-105 transition-transform">
+                  {farmerName ? farmerName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : "AS"}
+                </div>
               )}
+              <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold">
+                <Camera className="w-4 h-4" />
+              </div>
             </button>
-            <p className="text-gray-600 mt-2">Manage your farm, inventory, and sales.</p>
+
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button onClick={() => setShowProfile(true)} className="text-2xl sm:text-3xl font-extrabold text-primary hover:opacity-80 transition-opacity">
+                  Welcome, {farmerName}
+                </button>
+                {status === 'Approved' ? (
+                  <span className="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-black bg-green-100 text-green-800 border border-green-200">
+                    <ShieldCheck className="w-3.5 h-3.5 mr-1 text-green-600" /> Verified
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-800 border border-amber-200">
+                    <AlertTriangle className="w-3.5 h-3.5 mr-1 text-amber-600" /> {status}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 font-semibold flex-wrap">
+                <span>{farmerData?.village || "Saravanampatti"}, {farmerData?.district || "Coimbatore"}</span>
+                <span>•</span>
+                <button onClick={() => setShowProfile(true)} className="text-[#0B6B3A] hover:underline font-bold flex items-center gap-1">
+                  <Edit className="w-3 h-3" /> Edit Profile
+                </button>
+                <span>•</span>
+                <Link to={`/farmer/profile/${localStorage.getItem('agriconnect_user_id')}`} className="text-blue-700 hover:underline font-bold flex items-center gap-1">
+                  <Eye className="w-3 h-3" /> View Public Profile
+                </Link>
+              </div>
+            </div>
           </div>
 
           <div className="mt-4 md:mt-0 flex gap-3 items-center">
@@ -949,6 +1245,31 @@ export default function FarmerDashboard() {
             )}
         </div>
       </header>
+
+      {/* Profile Completion Bar Banner */}
+      {(farmerData?.completion?.percentage || 70) < 100 && (
+        <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-950 font-black text-xs flex items-center justify-center border border-amber-300 shrink-0">
+              {farmerData?.completion?.percentage || 70}%
+            </div>
+            <div>
+              <h4 className="font-extrabold text-amber-950 text-sm flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-amber-600" /> Complete your farmer profile ({farmerData?.completion?.percentage || 70}%)
+              </h4>
+              <p className="text-xs text-amber-800 mt-0.5">
+                Add profile photo, farm details, and primary crops to gain trust badges and rank higher for verified buyers.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => { setShowProfile(true); setProfileTab("profile"); }}
+            className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow transition-colors shrink-0"
+          >
+            Complete Profile →
+          </button>
+        </div>
+      )}
 
       {/* SIH26132 Hero Banner Callout */}
       <div className="mb-6 bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 text-white rounded-3xl p-6 shadow-xl border border-emerald-600/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
