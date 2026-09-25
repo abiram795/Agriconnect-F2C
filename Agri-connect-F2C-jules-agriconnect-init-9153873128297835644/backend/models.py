@@ -304,5 +304,30 @@ class CropListingResponse(CropListingCreate):
     created_at: str
     updated_at: str
 
+class BuyerDemandCreate(BaseModel):
+    crop_name: str
+    district: str
+    state: str = "Tamil Nadu"
+    demanded_quantity_tons: float
+    demand_level: str = "HIGH"  # "HIGH", "MEDIUM", "LOW"
+    target_price_per_kg: float
+    verified_buyers_count: int = 1
+    notes: Optional[str] = None
+
+class NegotiationCounterCreate(BaseModel):
+    bid_id: UUID
+    farmer_id: UUID
+    counter_price_per_kg: float
+    counter_notes: Optional[str] = None
+
+class SharedTransportRequest(BaseModel):
+    farmer_id: UUID
+    crop_name: str
+    quantity_kg: float
+    origin_location: str
+    destination_market: str
+    preferred_date: str
+
+
 
 

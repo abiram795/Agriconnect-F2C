@@ -23,6 +23,7 @@ import AIAssistant from "./pages/AIAssistant";
 import Transactions from "./pages/Transactions";
 import FarmerListings from "./pages/FarmerListings";
 import OrdersList from "./pages/OrdersList";
+import FarmerDecisionCenter from "./pages/FarmerDecisionCenter";
 
 function App() {
   return (
@@ -49,6 +50,7 @@ function App() {
         <Route path="/login" element={<UnifiedLogin />} />
         <Route path="/register" element={<UnifiedLogin isRegister={true} />} />
         <Route path="/farmer/dashboard" element={<FarmerDashboard />} />
+        <Route path="/farmer/decision-center" element={<FarmerDecisionCenter />} />
         <Route path="/farmer/listings" element={<FarmerListings />} />
         <Route path="/farmer/price-discovery" element={<FarmerPriceDiscovery />} />
         <Route path="/farmer/buyers" element={<FarmerBuyers />} />

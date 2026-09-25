@@ -669,6 +669,13 @@ export default function FarmerDashboard() {
               )}
             </div>
 
+            <Link
+              to="/farmer/decision-center"
+              className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg flex items-center shadow-md transition-colors animate-pulse"
+            >
+              <TrendingUp className="w-4 h-4 mr-1.5" /> ⚡ Decision Center
+            </Link>
+
             <button
               type="button"
               onClick={() => setIsIVRModalOpen(true)}
@@ -702,6 +709,33 @@ export default function FarmerDashboard() {
             )}
         </div>
       </header>
+
+      {/* SIH26132 Hero Banner Callout */}
+      <div className="mb-6 bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 text-white rounded-3xl p-6 shadow-xl border border-emerald-600/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div className="space-y-2 max-w-2xl">
+          <div className="flex items-center gap-2">
+            <span className="bg-amber-400 text-emerald-950 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider">
+              SIH26132 Flagship Feature
+            </span>
+            <span className="bg-emerald-700/60 text-emerald-200 text-xs font-semibold px-2.5 py-1 rounded-full">
+              Real-Time Decision Intelligence
+            </span>
+          </div>
+          <h2 className="text-2xl font-black tracking-tight text-white">
+            Smart Market Linkage & Net Realisation Decision Center
+          </h2>
+          <p className="text-emerald-100 text-sm leading-relaxed">
+            Get instant AI recommendations on <strong className="text-amber-300">Where to sell</strong>, <strong className="text-amber-300">When to sell</strong>, and <strong className="text-amber-300">Net profit earnings</strong> after transport, grading, storage & commission deductions.
+          </p>
+        </div>
+        <Link
+          to="/farmer/decision-center"
+          className="bg-amber-400 hover:bg-amber-300 text-emerald-950 font-black text-base px-6 py-3.5 rounded-2xl shadow-lg hover:shadow-amber-400/20 transition-all flex items-center gap-2 shrink-0 group"
+        >
+          <span>Launch Decision Center</span>
+          <TrendingUp className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+        </Link>
+      </div>
 
       {/* Unique Farmer IVR Identity Card */}
       <div className="mb-8 bg-white border border-blue-200 rounded-2xl shadow-sm p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
