@@ -8,6 +8,7 @@ DELIVERY_PROFILES = {}
 PARTNER_EARNINGS = {}
 BULK_REQUESTS_DB = {}
 FARMER_IVR_STORE = {}
+FARMER_DELIVERY_PREFERENCES_DB = {}
 
 
 from fastapi import FastAPI, HTTPException, Depends, Header
@@ -224,55 +225,103 @@ async def get_user(user_id: UUID):
             raise HTTPException(status_code=404, detail="User not found")
         return res.json()[0]
 
+class DeliveryPreferencesUpdate(BaseModel):
+    selfPickup: Optional[bool] = None
+    cityHubDelivery: Optional[bool] = None
+    verifiedLocalDelivery: Optional[bool] = None
+
 @app.get("/api/farmers/{user_id}")
 async def get_farmer_profile(user_id: UUID):
+    fid_str = str(user_id)
+    default_prefs = {"selfPickup": None, "cityHubDelivery": None, "verifiedLocalDelivery": None}
+
     if not supabase_url:
-        return {"verification_status": "Approved", "users": {"name": "Farmer", "phone": ""}}
+        return {
+            "user_id": fid_str,
+            "verification_status": "Approved", 
+            "users": {"name": "Farmer", "phone": ""},
+            "delivery_preferences": FARMER_DELIVERY_PREFERENCES_DB.get(fid_str, default_prefs)
+        }
     async with httpx.AsyncClient() as client:
         headers = get_supabase_headers()
+        farmer_profile = None
         # 1. Try join query
         res = await client.get(
             f"{supabase_url}/rest/v1/farmers?user_id=eq.{user_id}&select=*,users!farmers_user_id_fkey(name,phone)",
             headers=headers
         )
         if res.status_code == 200 and res.json():
-            return res.json()[0]
-        
-        # 2. Try simple farmers query without join
-        f_res = await client.get(
-            f"{supabase_url}/rest/v1/farmers?user_id=eq.{user_id}",
-            headers=headers
-        )
-        # 3. Query users table
-        u_res = await client.get(
-            f"{supabase_url}/rest/v1/users?id=eq.{user_id}",
-            headers=headers
-        )
-        
-        user_info = u_res.json()[0] if (u_res.status_code == 200 and u_res.json()) else {"name": "Farmer", "phone": ""}
-        
-        if f_res.status_code == 200 and f_res.json():
-            farmer_profile = f_res.json()[0]
-            farmer_profile["users"] = {"name": user_info.get("name", "Farmer"), "phone": user_info.get("phone", "")}
-            return farmer_profile
+            farmer_profile = res.json()[0]
+        else:
+            # 2. Try simple farmers query without join
+            f_res = await client.get(
+                f"{supabase_url}/rest/v1/farmers?user_id=eq.{user_id}",
+                headers=headers
+            )
+            # 3. Query users table
+            u_res = await client.get(
+                f"{supabase_url}/rest/v1/users?id=eq.{user_id}",
+                headers=headers
+            )
+            user_info = u_res.json()[0] if (u_res.status_code == 200 and u_res.json()) else {"name": "Farmer", "phone": ""}
             
-        # Fallback profile if farmer row doesn't exist yet
-        return {
-            "user_id": str(user_id),
-            "state": "Tamil Nadu",
-            "district": "Coimbatore",
-            "village": "Coimbatore",
-            "farm_size": "Small",
-            "languages": "Tamil",
-            "verification_status": "Pending",
-            "land_area": "Survey No. 123",
-            "acreage": 2.0,
-            "ownership_status": "Owned",
-            "users": {
-                "name": user_info.get("name", "Farmer"),
-                "phone": user_info.get("phone", "")
-            }
-        }
+            if f_res.status_code == 200 and f_res.json():
+                farmer_profile = f_res.json()[0]
+                farmer_profile["users"] = {"name": user_info.get("name", "Farmer"), "phone": user_info.get("phone", "")}
+            else:
+                farmer_profile = {
+                    "user_id": str(user_id),
+                    "state": "Tamil Nadu",
+                    "district": "Coimbatore",
+                    "village": "Coimbatore",
+                    "farm_size": "Small",
+                    "languages": "Tamil",
+                    "verification_status": "Pending",
+                    "land_area": "Survey No. 123",
+                    "acreage": 2.0,
+                    "ownership_status": "Owned",
+                    "users": {
+                        "name": user_info.get("name", "Farmer"),
+                        "phone": user_info.get("phone", "")
+                    }
+                }
+
+        # Ensure delivery_preferences is attached
+        if "delivery_preferences" not in farmer_profile or not farmer_profile["delivery_preferences"]:
+            farmer_profile["delivery_preferences"] = FARMER_DELIVERY_PREFERENCES_DB.get(fid_str, default_prefs)
+        else:
+            # Sync in-memory DB with loaded DB value
+            FARMER_DELIVERY_PREFERENCES_DB[fid_str] = farmer_profile["delivery_preferences"]
+            
+        return farmer_profile
+
+@app.patch("/api/farmers/{farmer_id}/delivery-preferences")
+async def update_farmer_delivery_preferences(farmer_id: UUID, prefs: DeliveryPreferencesUpdate):
+    fid = str(farmer_id)
+    current = FARMER_DELIVERY_PREFERENCES_DB.get(fid, {"selfPickup": None, "cityHubDelivery": None, "verifiedLocalDelivery": None})
+    
+    if prefs.selfPickup is not None:
+        current["selfPickup"] = prefs.selfPickup
+    if prefs.cityHubDelivery is not None:
+        current["cityHubDelivery"] = prefs.cityHubDelivery
+    if prefs.verifiedLocalDelivery is not None:
+        current["verifiedLocalDelivery"] = prefs.verifiedLocalDelivery
+        
+    FARMER_DELIVERY_PREFERENCES_DB[fid] = current
+
+    if supabase_url and supabase_key:
+        try:
+            async with httpx.AsyncClient() as client:
+                headers = get_supabase_headers()
+                await client.patch(
+                    f"{supabase_url}/rest/v1/farmers?user_id=eq.{farmer_id}",
+                    json={"delivery_preferences": current},
+                    headers=headers
+                )
+        except Exception as e:
+            print("Supabase update for delivery preferences notice:", e)
+
+    return {"message": "Delivery preferences updated", "delivery_preferences": current}
 
 from fastapi import UploadFile, File, Form
 

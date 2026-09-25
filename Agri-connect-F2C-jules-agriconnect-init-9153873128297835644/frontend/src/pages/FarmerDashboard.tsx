@@ -1,4 +1,4 @@
-import { Package, TrendingUp, Plus, ShieldCheck, CheckCircle, AlertTriangle, User, Users, ArrowLeft, Bell, MapPin, DollarSign, Activity, Navigation, Truck, Star, X, BarChart2, Phone } from "lucide-react";
+import { Package, TrendingUp, Plus, ShieldCheck, CheckCircle, AlertTriangle, User, Users, ArrowLeft, Bell, MapPin, DollarSign, Activity, Navigation, Truck, Star, X, BarChart2, Phone, Info } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { getApiUrl } from "../config/api";
@@ -38,6 +38,21 @@ export default function FarmerDashboard() {
   const [profileTab, setProfileTab] = useState<"profile" | "farm" | "verification" | "selling" | "delivery" | "account">("profile");
   const [showReVerificationNotice, setShowReVerificationNotice] = useState(false);
 
+  // Delivery Preferences State
+  const [deliveryPrefs, setDeliveryPrefs] = useState<{
+    selfPickup: boolean | null;
+    cityHubDelivery: boolean | null;
+    verifiedLocalDelivery: boolean | null;
+  }>({
+    selfPickup: null,
+    cityHubDelivery: null,
+    verifiedLocalDelivery: null,
+  });
+  const [isLoadingDeliveryPrefs, setIsLoadingDeliveryPrefs] = useState(true);
+  const [savingPrefKey, setSavingPrefKey] = useState<string | null>(null);
+  const [prefSaveNotice, setPrefSaveNotice] = useState<string>("");
+  const [prefErrorNotice, setPrefErrorNotice] = useState<string>("");
+
   useEffect(() => {
     if (location.state && location.state.message) {
       setSuccessMessage(location.state.message);
@@ -64,6 +79,10 @@ export default function FarmerDashboard() {
       if (res.ok) {
         const data = await res.json();
         setFarmerData(data);
+        if (data && data.delivery_preferences) {
+          setDeliveryPrefs(data.delivery_preferences);
+        }
+        setIsLoadingDeliveryPrefs(false);
       }
       
       const pRes = await fetch(getApiUrl(`/api/farmers/${userId}/products`));
@@ -112,6 +131,49 @@ export default function FarmerDashboard() {
       console.error("Failed to fetch data", err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const updateDeliveryPreference = async (
+    key: 'selfPickup' | 'cityHubDelivery' | 'verifiedLocalDelivery',
+    value: boolean
+  ) => {
+    const previousPrefs = { ...deliveryPrefs };
+    const updatedPrefs = { ...deliveryPrefs, [key]: value };
+
+    // 1. Optimistic UI update
+    setDeliveryPrefs(updatedPrefs);
+    setSavingPrefKey(key);
+    setPrefSaveNotice("Saving preference...");
+    setPrefErrorNotice("");
+
+    try {
+      const userId = localStorage.getItem('agriconnect_user_id');
+      const res = await fetch(getApiUrl(`/api/farmers/${userId}/delivery-preferences`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedPrefs)
+      });
+
+      if (res.ok) {
+        const resData = await res.json();
+        if (resData.delivery_preferences) {
+          setDeliveryPrefs(resData.delivery_preferences);
+        }
+        setPrefSaveNotice("Delivery preference updated.");
+        setTimeout(() => setPrefSaveNotice(""), 3000);
+      } else {
+        throw new Error("Failed to save delivery preferences");
+      }
+    } catch (err) {
+      console.error("Error updating delivery preference:", err);
+      // Revert UI to previous saved value
+      setDeliveryPrefs(previousPrefs);
+      setPrefErrorNotice("Failed to save delivery preference. Please try again.");
+      setPrefSaveNotice("");
+      setTimeout(() => setPrefErrorNotice(""), 4000);
+    } finally {
+      setSavingPrefKey(null);
     }
   };
 
@@ -507,24 +569,202 @@ export default function FarmerDashboard() {
 
         {/* TAB 5: DELIVERY */}
         {profileTab === "delivery" && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <Truck className="w-5 h-5 text-[#0B6B3A]" /> Delivery Method Preferences
-            </h2>
-            <div className="space-y-3 bg-gray-50 p-5 rounded-xl border border-gray-200 text-sm">
-              <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
-                <span className="font-bold text-gray-800">1. Self Pickup by Consumer</span>
-                <span className="text-xs font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full">Supported</span>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 pb-4 border-b border-gray-100">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <Truck className="w-6 h-6 text-[#0B6B3A]" /> Delivery Method Preferences
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Choose which delivery methods you are willing to accept for your farm produce.
+                </p>
               </div>
-              <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
-                <span className="font-bold text-gray-800">2. AgriConnect City Hub Delivery</span>
-                <span className="text-xs font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full">Supported</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
-                <span className="font-bold text-gray-800">3. Verified Local Delivery Partner</span>
-                <span className="text-xs font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full">Supported</span>
-              </div>
+              {prefSaveNotice && (
+                <span className="px-3.5 py-1.5 bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-bold rounded-xl flex items-center gap-1.5 animate-pulse shadow-sm">
+                  <CheckCircle className="w-4 h-4 text-emerald-600" /> {prefSaveNotice}
+                </span>
+              )}
+              {prefErrorNotice && (
+                <span className="px-3.5 py-1.5 bg-red-100 border border-red-300 text-red-800 text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm">
+                  <AlertTriangle className="w-4 h-4 text-red-600" /> {prefErrorNotice}
+                </span>
+              )}
             </div>
+
+            {isLoadingDeliveryPrefs ? (
+              <div className="p-10 text-center text-gray-500 font-semibold space-y-3">
+                <div className="animate-spin w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full mx-auto"></div>
+                <p className="text-sm">Loading delivery preferences...</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Method 1: Self Pickup */}
+                <div className="p-5 bg-white rounded-2xl border border-gray-200 shadow-sm space-y-3 hover:border-emerald-300 transition-colors">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="p-2 bg-emerald-50 text-[#0B6B3A] rounded-xl border border-emerald-100">
+                          <User className="w-5 h-5" />
+                        </span>
+                        <h3 className="font-extrabold text-base text-gray-900">
+                          🚚 1. Self Pickup by Consumer
+                        </h3>
+                      </div>
+                      <p className="text-xs font-medium text-gray-600 pl-9">
+                        Allow customers to collect the order directly from my farm location.
+                      </p>
+                    </div>
+
+                    {/* Segmented Controls */}
+                    <div className="flex items-center bg-gray-100 p-1 rounded-xl border border-gray-200 shrink-0 self-start sm:self-center">
+                      <button
+                        type="button"
+                        onClick={() => updateDeliveryPreference('selfPickup', true)}
+                        disabled={savingPrefKey === 'selfPickup'}
+                        className={`px-4 py-2 rounded-lg font-bold text-xs transition-all flex items-center gap-1.5 ${
+                          deliveryPrefs.selfPickup === true
+                            ? "bg-[#0B6B3A] text-white shadow-sm"
+                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/60"
+                        }`}
+                      >
+                        <CheckCircle className="w-3.5 h-3.5" /> Yes, I'm willing
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateDeliveryPreference('selfPickup', false)}
+                        disabled={savingPrefKey === 'selfPickup'}
+                        className={`px-4 py-2 rounded-lg font-bold text-xs transition-all flex items-center gap-1.5 ${
+                          deliveryPrefs.selfPickup === false
+                            ? "bg-red-600 text-white shadow-sm"
+                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/60"
+                        }`}
+                      >
+                        <X className="w-3.5 h-3.5" /> No
+                      </button>
+                    </div>
+                  </div>
+                  {deliveryPrefs.selfPickup === null && (
+                    <div className="ml-9 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[11px] font-bold text-amber-800 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>Preference not configured yet. Please choose if you are willing to support self pickup.</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Method 2: City Hub Delivery */}
+                <div className="p-5 bg-white rounded-2xl border border-gray-200 shadow-sm space-y-3 hover:border-emerald-300 transition-colors">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="p-2 bg-blue-50 text-blue-700 rounded-xl border border-blue-100">
+                          <Navigation className="w-5 h-5" />
+                        </span>
+                        <h3 className="font-extrabold text-base text-gray-900">
+                          🏢 2. AgriConnect City Hub Delivery
+                        </h3>
+                      </div>
+                      <p className="text-xs font-medium text-gray-600 pl-9">
+                        I am willing to send my produce through the AgriConnect city hub.
+                      </p>
+                    </div>
+
+                    {/* Segmented Controls */}
+                    <div className="flex items-center bg-gray-100 p-1 rounded-xl border border-gray-200 shrink-0 self-start sm:self-center">
+                      <button
+                        type="button"
+                        onClick={() => updateDeliveryPreference('cityHubDelivery', true)}
+                        disabled={savingPrefKey === 'cityHubDelivery'}
+                        className={`px-4 py-2 rounded-lg font-bold text-xs transition-all flex items-center gap-1.5 ${
+                          deliveryPrefs.cityHubDelivery === true
+                            ? "bg-[#0B6B3A] text-white shadow-sm"
+                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/60"
+                        }`}
+                      >
+                        <CheckCircle className="w-3.5 h-3.5" /> Yes, I'm willing
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateDeliveryPreference('cityHubDelivery', false)}
+                        disabled={savingPrefKey === 'cityHubDelivery'}
+                        className={`px-4 py-2 rounded-lg font-bold text-xs transition-all flex items-center gap-1.5 ${
+                          deliveryPrefs.cityHubDelivery === false
+                            ? "bg-red-600 text-white shadow-sm"
+                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/60"
+                        }`}
+                      >
+                        <X className="w-3.5 h-3.5" /> No
+                      </button>
+                    </div>
+                  </div>
+                  {deliveryPrefs.cityHubDelivery === null && (
+                    <div className="ml-9 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[11px] font-bold text-amber-800 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>Preference not configured yet. Please choose if you are willing to support City Hub delivery.</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Method 3: Verified Local Delivery Partner */}
+                <div className="p-5 bg-white rounded-2xl border border-gray-200 shadow-sm space-y-3 hover:border-emerald-300 transition-colors">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="p-2 bg-purple-50 text-purple-700 rounded-xl border border-purple-100">
+                          <Truck className="w-5 h-5" />
+                        </span>
+                        <h3 className="font-extrabold text-base text-gray-900">
+                          🚚 3. Verified Local Delivery Partner
+                        </h3>
+                      </div>
+                      <p className="text-xs font-medium text-gray-600 pl-9">
+                        I am willing to use a verified local delivery partner.
+                      </p>
+                    </div>
+
+                    {/* Segmented Controls */}
+                    <div className="flex items-center bg-gray-100 p-1 rounded-xl border border-gray-200 shrink-0 self-start sm:self-center">
+                      <button
+                        type="button"
+                        onClick={() => updateDeliveryPreference('verifiedLocalDelivery', true)}
+                        disabled={savingPrefKey === 'verifiedLocalDelivery'}
+                        className={`px-4 py-2 rounded-lg font-bold text-xs transition-all flex items-center gap-1.5 ${
+                          deliveryPrefs.verifiedLocalDelivery === true
+                            ? "bg-[#0B6B3A] text-white shadow-sm"
+                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/60"
+                        }`}
+                      >
+                        <CheckCircle className="w-3.5 h-3.5" /> Yes, I'm willing
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateDeliveryPreference('verifiedLocalDelivery', false)}
+                        disabled={savingPrefKey === 'verifiedLocalDelivery'}
+                        className={`px-4 py-2 rounded-lg font-bold text-xs transition-all flex items-center gap-1.5 ${
+                          deliveryPrefs.verifiedLocalDelivery === false
+                            ? "bg-red-600 text-white shadow-sm"
+                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/60"
+                        }`}
+                      >
+                        <X className="w-3.5 h-3.5" /> No
+                      </button>
+                    </div>
+                  </div>
+                  {deliveryPrefs.verifiedLocalDelivery === null && (
+                    <div className="ml-9 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[11px] font-bold text-amber-800 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>Preference not configured yet. Please choose if you are willing to use local delivery partners.</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl text-xs text-emerald-900 font-semibold flex items-center gap-2.5 mt-4">
+                  <Info className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span>
+                    Your delivery preferences will be used when matching orders and delivery options.
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

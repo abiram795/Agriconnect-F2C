@@ -23,6 +23,11 @@ class UserCreate(UserBase):
 class UserResponse(UserBase):
     id: UUID
 
+class DeliveryPreferences(BaseModel):
+    selfPickup: Optional[bool] = None
+    cityHubDelivery: Optional[bool] = None
+    verifiedLocalDelivery: Optional[bool] = None
+
 class FarmerProfile(BaseModel):
     state: Optional[str] = None
     district: Optional[str] = None
@@ -39,6 +44,7 @@ class FarmerProfile(BaseModel):
     farmer_delivery_enabled: bool = False
     delivery_radius_km: int = 0
     admin_remarks: Optional[str] = None
+    delivery_preferences: Optional[DeliveryPreferences] = None
 
 class VerificationAction(BaseModel):
     action: str # "Approve", "Reject", "Request Correction"
