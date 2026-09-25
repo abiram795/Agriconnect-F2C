@@ -13,7 +13,13 @@ FARMER_IVR_STORE = {}
 from fastapi import FastAPI, HTTPException, Depends, Header
 from typing import List, Dict, Optional, Any
 from uuid import UUID, uuid4
-from models import UserCreate, UserResponse, ProductCreate, ProductResponse, OrderCreate, OrderResponse, BulkOrderRequestCreate, BulkOrderRequestResponse, VerificationAction, AddressCreate, AddressResponse, HubStockTransferCreate, HubStockReceiptAction, HubIncomingReceiptCreate, HubSaleReceiptCreate
+from models import (
+    UserCreate, UserResponse, ProductCreate, ProductResponse, OrderCreate, OrderResponse,
+    BulkOrderRequestCreate, BulkOrderRequestResponse, VerificationAction, AddressCreate, AddressResponse,
+    HubStockTransferCreate, HubStockReceiptAction, HubIncomingReceiptCreate, HubSaleReceiptCreate,
+    CropListingCreate, CropListingUpdate, CropListingResponse, FPOLotCreate, FPOLotResponse,
+    BuyerBidCreate, BuyerBidResponse, DisputeCreate, DisputeResponse
+)
 from pydantic import BaseModel
 from ai_service import SearchRequest, SearchResponse, PriceRecommendationResponse, mock_natural_language_search, mock_price_recommendation, mock_image_analysis, ImageAnalysisResponse, ImageAnalysisRequest, analyze_product_image_real
 from ivr_service import IVRWebhookRequest, IVRResponse, get_ivr_provider, handle_incoming_call, handle_digit_input
@@ -3012,6 +3018,359 @@ async def create_hub_consumer_order(payload: dict):
         )
 
         return created_order
+
+# -----------------------------------------------------------------------------
+# CROP LISTINGS MANAGEMENT ENDPOINTS & SMART LOT ID GENERATOR
+# -----------------------------------------------------------------------------
+
+CROP_LISTINGS_DB: Dict[str, dict] = {}
+LOT_COUNTER = 100
+
+def generate_smart_lot_id() -> str:
+    global LOT_COUNTER
+    LOT_COUNTER += 1
+    year = datetime.now().year
+    return f"AGRI-{year}-{LOT_COUNTER:04d}"
+
+# Seed initial crop listings for production demonstration
+SEED_CROP_1 = {
+    "id": "c0000000-0000-0000-0000-000000000001",
+    "lot_id": "AGRI-2026-0001",
+    "farmer_id": "f0000000-0000-0000-0000-000000000001",
+    "crop_name": "Tomato",
+    "category": "Vegetables",
+    "variety": "Hybrid Red Vaishnavi",
+    "quantity": 500.0,
+    "unit": "kg",
+    "expected_price": 38.0,
+    "minimum_price": 32.0,
+    "quality_grade": "Grade A",
+    "quality_description": "Firm skin, deep red color, uniform size, zero pest damage.",
+    "harvest_date": "2026-09-24",
+    "available_from": "2026-09-25",
+    "location": "Annur Village",
+    "district": "Coimbatore",
+    "state": "Tamil Nadu",
+    "description": "Freshly harvested premium hybrid tomatoes directly from farm gate.",
+    "image_url": "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=600",
+    "is_organic": True,
+    "farming_method": "Drip Irrigated Organic",
+    "preferred_buyer_type": "Retailers & Processors",
+    "preferred_market": "Farm Gate / Direct F2C",
+    "max_delivery_distance_km": 50.0,
+    "status": "ACTIVE",
+    "created_at": datetime.now().isoformat(),
+    "updated_at": datetime.now().isoformat()
+}
+
+SEED_CROP_2 = {
+    "id": "c0000000-0000-0000-0000-000000000002",
+    "lot_id": "AGRI-2026-0002",
+    "farmer_id": "f0000000-0000-0000-0000-000000000001",
+    "crop_name": "Onion",
+    "category": "Vegetables",
+    "variety": "Nasik Red",
+    "quantity": 1200.0,
+    "unit": "kg",
+    "expected_price": 28.0,
+    "minimum_price": 24.0,
+    "quality_grade": "Grade B",
+    "quality_description": "Medium bulb size, well-dried outer scales.",
+    "harvest_date": "2026-09-20",
+    "available_from": "2026-09-22",
+    "location": "Pollachi Main Farm",
+    "district": "Coimbatore",
+    "state": "Tamil Nadu",
+    "description": "Properly cured red onions suitable for wholesale storage.",
+    "image_url": "https://images.unsplash.com/photo-1618512496248-a07fe83aa8cf?w=600",
+    "is_organic": False,
+    "farming_method": "Conventional",
+    "preferred_buyer_type": "Wholesalers",
+    "preferred_market": "Mandi Warehouse",
+    "max_delivery_distance_km": 100.0,
+    "status": "ACTIVE",
+    "created_at": datetime.now().isoformat(),
+    "updated_at": datetime.now().isoformat()
+}
+
+CROP_LISTINGS_DB[SEED_CROP_1["id"]] = SEED_CROP_1
+CROP_LISTINGS_DB[SEED_CROP_1["lot_id"]] = SEED_CROP_1
+CROP_LISTINGS_DB[SEED_CROP_2["id"]] = SEED_CROP_2
+CROP_LISTINGS_DB[SEED_CROP_2["lot_id"]] = SEED_CROP_2
+
+@app.post("/api/crop-listings", response_model=CropListingResponse)
+async def create_crop_listing(data: CropListingCreate):
+    if data.quantity <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be greater than zero.")
+    if data.expected_price <= 0:
+        raise HTTPException(status_code=400, detail="Expected price must be greater than zero.")
+    if data.minimum_price < 0:
+        raise HTTPException(status_code=400, detail="Minimum price cannot be negative.")
+    if data.minimum_price > data.expected_price:
+        raise HTTPException(status_code=400, detail="Minimum price cannot exceed expected price.")
+
+    listing_id = str(uuid4())
+    lot_id = generate_smart_lot_id()
+    now_iso = datetime.now().isoformat()
+    farmer_id_str = str(data.farmer_id) if data.farmer_id else "f0000000-0000-0000-0000-000000000001"
+
+    record = {
+        **data.model_dump(),
+        "id": listing_id,
+        "lot_id": lot_id,
+        "farmer_id": farmer_id_str,
+        "status": "ACTIVE",
+        "created_at": now_iso,
+        "updated_at": now_iso
+    }
+
+    # Attempt Supabase persistence if configured
+    async with httpx.AsyncClient() as client:
+        headers = get_supabase_headers()
+        try:
+            await client.post(
+                f"{supabase_url}/rest/v1/crop_listings",
+                json={
+                    "id": listing_id,
+                    "lot_id": lot_id,
+                    "farmer_id": farmer_id_str,
+                    "crop_name": data.crop_name,
+                    "category": data.category,
+                    "variety": data.variety,
+                    "quantity": data.quantity,
+                    "unit": data.unit,
+                    "expected_price": data.expected_price,
+                    "minimum_price": data.minimum_price,
+                    "quality_grade": data.quality_grade,
+                    "quality_description": data.quality_description,
+                    "harvest_date": data.harvest_date,
+                    "available_from": data.available_from,
+                    "location": data.location,
+                    "district": data.district,
+                    "state": data.state,
+                    "description": data.description,
+                    "image_url": data.image_url,
+                    "is_organic": data.is_organic,
+                    "farming_method": data.farming_method,
+                    "preferred_buyer_type": data.preferred_buyer_type,
+                    "preferred_market": data.preferred_market,
+                    "max_delivery_distance_km": data.max_delivery_distance_km,
+                    "status": "ACTIVE"
+                },
+                headers=headers
+            )
+        except Exception:
+            pass
+
+        # Sync with marketplace products table as well
+        try:
+            await client.post(
+                f"{supabase_url}/rest/v1/products",
+                json={
+                    "id": listing_id,
+                    "name": f"{data.crop_name} ({data.variety}) - Lot {lot_id}",
+                    "description": data.description or f"Grade {data.quality_grade} {data.crop_name}",
+                    "price": data.expected_price,
+                    "unit": data.unit,
+                    "quantity_available": data.quantity,
+                    "farmer_id": farmer_id_str,
+                    "status": "Available",
+                    "image_url": data.image_url
+                },
+                headers=headers
+            )
+        except Exception:
+            pass
+
+    CROP_LISTINGS_DB[listing_id] = record
+    CROP_LISTINGS_DB[lot_id] = record
+
+    return record
+
+@app.get("/api/crop-listings")
+async def get_crop_listings(
+    farmer_id: Optional[str] = None,
+    crop_name: Optional[str] = None,
+    category: Optional[str] = None,
+    status: Optional[str] = None,
+    quality_grade: Optional[str] = None,
+    district: Optional[str] = None,
+    search: Optional[str] = None,
+    sort_by: Optional[str] = "newest"
+):
+    async with httpx.AsyncClient() as client:
+        try:
+            url = f"{supabase_url}/rest/v1/crop_listings?order=created_at.desc"
+            if farmer_id:
+                url = f"{supabase_url}/rest/v1/crop_listings?farmer_id=eq.{farmer_id}&order=created_at.desc"
+            res = await client.get(url, headers=get_supabase_headers())
+            if res.status_code == 200 and res.json():
+                db_listings = res.json()
+                for d in db_listings:
+                    CROP_LISTINGS_DB[d["id"]] = d
+                    if d.get("lot_id"):
+                        CROP_LISTINGS_DB[d["lot_id"]] = d
+        except Exception:
+            pass
+
+    items = list({r["id"]: r for r in CROP_LISTINGS_DB.values()}.values())
+
+    # Filtering
+    if farmer_id:
+        items = [i for i in items if str(i.get("farmer_id")) == str(farmer_id)]
+    if crop_name:
+        items = [i for i in items if crop_name.lower() in i.get("crop_name", "").lower()]
+    if category and category.lower() != "all":
+        items = [i for i in items if category.lower() in i.get("category", "").lower()]
+    if status and status.lower() != "all":
+        items = [i for i in items if i.get("status", "").upper() == status.upper()]
+    if quality_grade and quality_grade.lower() != "all":
+        items = [i for i in items if quality_grade.lower() in i.get("quality_grade", "").lower()]
+    if district:
+        items = [i for i in items if district.lower() in i.get("district", "").lower()]
+    if search and search.strip():
+        q_term = search.strip().lower()
+        items = [
+            i for i in items if
+            q_term in i.get("crop_name", "").lower() or
+            q_term in i.get("lot_id", "").lower() or
+            q_term in i.get("variety", "").lower() or
+            q_term in i.get("location", "").lower()
+        ]
+
+    # Sorting
+    if sort_by == "newest":
+        items = sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)
+    elif sort_by == "oldest":
+        items = sorted(items, key=lambda x: x.get("created_at", ""))
+    elif sort_by == "highest_price":
+        items = sorted(items, key=lambda x: float(x.get("expected_price") or 0.0), reverse=True)
+    elif sort_by == "lowest_price":
+        items = sorted(items, key=lambda x: float(x.get("expected_price") or 0.0))
+    elif sort_by == "highest_quantity":
+        items = sorted(items, key=lambda x: float(x.get("quantity") or 0.0), reverse=True)
+
+    return items
+
+@app.get("/api/crop-listings/{identifier}")
+async def get_single_crop_listing(identifier: str):
+    if identifier in CROP_LISTINGS_DB:
+        return CROP_LISTINGS_DB[identifier]
+
+    async with httpx.AsyncClient() as client:
+        try:
+            res = await client.get(
+                f"{supabase_url}/rest/v1/crop_listings?or=(id.eq.{identifier},lot_id.eq.{identifier})",
+                headers=get_supabase_headers()
+            )
+            if res.status_code == 200 and res.json():
+                record = res.json()[0]
+                CROP_LISTINGS_DB[record["id"]] = record
+                CROP_LISTINGS_DB[record["lot_id"]] = record
+                return record
+        except Exception:
+            pass
+
+    raise HTTPException(status_code=404, detail="Crop listing not found")
+
+@app.patch("/api/crop-listings/{listing_id}")
+@app.put("/api/crop-listings/{listing_id}")
+async def update_crop_listing(listing_id: str, update_data: CropListingUpdate):
+    target = None
+    if listing_id in CROP_LISTINGS_DB:
+        target = CROP_LISTINGS_DB[listing_id]
+    else:
+        # Lookup in memory
+        for r in CROP_LISTINGS_DB.values():
+            if str(r.get("id")) == listing_id or str(r.get("lot_id")) == listing_id:
+                target = r
+                break
+
+    if not target:
+        raise HTTPException(status_code=404, detail="Crop listing not found")
+
+    up_dict = {k: v for k, v in update_data.model_dump().items() if v is not None}
+    up_dict["updated_at"] = datetime.now().isoformat()
+
+    # Validate price bounds if updated
+    exp_p = up_dict.get("expected_price", target.get("expected_price", 0))
+    min_p = up_dict.get("minimum_price", target.get("minimum_price", 0))
+    if min_p > exp_p:
+        raise HTTPException(status_code=400, detail="Minimum price cannot exceed expected price.")
+
+    for k, v in up_dict.items():
+        target[k] = v
+
+    async with httpx.AsyncClient() as client:
+        try:
+            await client.patch(
+                f"{supabase_url}/rest/v1/crop_listings?id=eq.{target['id']}",
+                json=up_dict,
+                headers=get_supabase_headers()
+            )
+        except Exception:
+            pass
+
+    return target
+
+class CropListingStatusUpdate(BaseModel):
+    status: str  # "ACTIVE", "PAUSED", "SOLD", "EXPIRED"
+
+@app.patch("/api/crop-listings/{listing_id}/status")
+async def update_crop_listing_status(listing_id: str, status_data: CropListingStatusUpdate):
+    target = None
+    if listing_id in CROP_LISTINGS_DB:
+        target = CROP_LISTINGS_DB[listing_id]
+    else:
+        for r in CROP_LISTINGS_DB.values():
+            if str(r.get("id")) == listing_id or str(r.get("lot_id")) == listing_id:
+                target = r
+                break
+
+    if not target:
+        raise HTTPException(status_code=404, detail="Crop listing not found")
+
+    valid_statuses = ["ACTIVE", "PAUSED", "SOLD", "EXPIRED"]
+    new_status = status_data.status.upper()
+    if new_status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of {valid_statuses}")
+
+    target["status"] = new_status
+    target["updated_at"] = datetime.now().isoformat()
+
+    async with httpx.AsyncClient() as client:
+        try:
+            await client.patch(
+                f"{supabase_url}/rest/v1/crop_listings?id=eq.{target['id']}",
+                json={"status": new_status, "updated_at": target["updated_at"]},
+                headers=get_supabase_headers()
+            )
+        except Exception:
+            pass
+
+    return {"status": "success", "listing": target}
+
+@app.delete("/api/crop-listings/{listing_id}")
+async def delete_crop_listing(listing_id: str):
+    target_id = None
+    if listing_id in CROP_LISTINGS_DB:
+        target_id = CROP_LISTINGS_DB[listing_id]["id"]
+        lot_id = CROP_LISTINGS_DB[listing_id].get("lot_id")
+        del CROP_LISTINGS_DB[listing_id]
+        if lot_id and lot_id in CROP_LISTINGS_DB:
+            del CROP_LISTINGS_DB[lot_id]
+
+    async with httpx.AsyncClient() as client:
+        try:
+            if target_id:
+                await client.delete(
+                    f"{supabase_url}/rest/v1/crop_listings?id=eq.{target_id}",
+                    headers=get_supabase_headers()
+                )
+        except Exception:
+            pass
+
+    return {"status": "success", "message": "Crop listing deleted successfully"}
 
 # -----------------------------------------------------------------------------
 # FPO LOT CREATION & AGGREGATION ENDPOINTS

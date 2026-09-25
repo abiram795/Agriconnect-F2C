@@ -250,4 +250,59 @@ class DisputeResponse(DisputeCreate):
     resolution_notes: Optional[str] = None
     created_at: str
 
+class CropListingCreate(BaseModel):
+    farmer_id: Optional[UUID] = None
+    crop_name: str
+    category: str = "Vegetables"  # "Vegetables", "Fruits", "Grains & Pulses", "Spices", "Oilseeds", "Others"
+    variety: str
+    quantity: float
+    unit: str = "kg"  # "kg", "Quintal", "Ton", "Bags", "Crates"
+    expected_price: float
+    minimum_price: float
+    quality_grade: str = "Grade A"  # "Grade A", "Grade B", "Grade C"
+    quality_description: Optional[str] = None
+    harvest_date: str
+    available_from: str
+    location: str
+    district: str
+    state: str
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+    is_organic: Optional[bool] = False
+    farming_method: Optional[str] = "Conventional"
+    preferred_buyer_type: Optional[str] = "All Buyers"
+    preferred_market: Optional[str] = "Farm Gate / Direct F2C"
+    max_delivery_distance_km: Optional[float] = 50.0
+
+class CropListingUpdate(BaseModel):
+    crop_name: Optional[str] = None
+    category: Optional[str] = None
+    variety: Optional[str] = None
+    quantity: Optional[float] = None
+    unit: Optional[str] = None
+    expected_price: Optional[float] = None
+    minimum_price: Optional[float] = None
+    quality_grade: Optional[str] = None
+    quality_description: Optional[str] = None
+    harvest_date: Optional[str] = None
+    available_from: Optional[str] = None
+    location: Optional[str] = None
+    district: Optional[str] = None
+    state: Optional[str] = None
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+    is_organic: Optional[bool] = None
+    farming_method: Optional[str] = None
+    preferred_buyer_type: Optional[str] = None
+    preferred_market: Optional[str] = None
+    max_delivery_distance_km: Optional[float] = None
+
+class CropListingResponse(CropListingCreate):
+    id: UUID
+    lot_id: str
+    status: str = "ACTIVE"  # "ACTIVE", "PAUSED", "SOLD", "EXPIRED"
+    created_at: str
+    updated_at: str
+
+
 
