@@ -172,7 +172,7 @@ export default function Login({ role, onLogin }: LoginProps) {
               </div>
               {role === "hub" && (
                 <div className="mt-2 text-xs bg-emerald-50 border border-emerald-200 text-emerald-900 p-3 rounded-xl space-y-1">
-                  <p className="font-bold">SIH Demo Hub Credentials:</p>
+                  <p className="font-bold">SIH Hub Access Credentials:</p>
                   <p>• Username/Email: <code className="bg-emerald-100 px-1 py-0.5 rounded font-mono font-bold">hub@agriconnect.demo</code></p>
                   <p>• Password: <code className="bg-emerald-100 px-1 py-0.5 rounded font-mono font-bold">AgriHub@2026</code></p>
                   <p>• Hub ID: <span className="font-semibold">COIMBATORE-HUB-001</span></p>

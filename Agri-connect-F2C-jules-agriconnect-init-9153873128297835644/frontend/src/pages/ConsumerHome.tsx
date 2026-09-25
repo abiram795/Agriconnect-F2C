@@ -4,7 +4,7 @@ import OrderModal from "../components/OrderModal";
 import AddressForm from "../components/AddressForm";
 import { getApiUrl } from "../config/api";
 
-export default function ConsumerHome() {
+export default function BuyerHome() {
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [isSubmittingBulk, setIsSubmittingBulk] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
@@ -64,7 +64,7 @@ export default function ConsumerHome() {
 
   const fetchBulkRequests = async () => {
     try {
-      const res = await fetch(getApiUrl(`/api/bulk-requests/consumer/${consumerId}`));
+      const res = await fetch(getApiUrl(`/api/bulk-requests/Buyer/${consumerId}`));
       if (res.ok) setBulkRequests(await res.json());
     } catch (err) {
       console.error(err);
@@ -136,7 +136,7 @@ export default function ConsumerHome() {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch(getApiUrl(`/api/orders/consumer/${consumerId}`));
+      const res = await fetch(getApiUrl(`/api/orders/Buyer/${consumerId}`));
       if (res.ok) setOrders(await res.json());
     } catch (err) {
       console.error(err);
@@ -201,7 +201,7 @@ export default function ConsumerHome() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           order_id: reviewModalTarget.orderId,
-          consumer_id: consumerId,
+          Buyer_id: consumerId,
           reviewee_type: reviewModalTarget.revieweeType,
           reviewee_id: reviewModalTarget.revieweeId,
           rating: reviewRating,
@@ -233,7 +233,7 @@ export default function ConsumerHome() {
     try {
       const selAddr = addresses.find(a => a.id === bulkSelectedAddressId) || addresses[0] || {};
       const payload = {
-        consumer_id: consumerId,
+        Buyer_id: consumerId,
         product_id: bulkProductId || null,
         product_name: bulkProductName || "Fresh Produce",
         quantity_required: Number(bulkQuantity),
@@ -269,12 +269,12 @@ export default function ConsumerHome() {
     }
   };
 
-  const handleConsumerBulkAction = async (requestId: string, action: string) => {
+  const handleBuyerBulkAction = async (requestId: string, action: string) => {
     try {
-      const res = await fetch(getApiUrl(`/api/bulk-requests/${requestId}/consumer-action`), {
+      const res = await fetch(getApiUrl(`/api/bulk-requests/${requestId}/Buyer-action`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ consumer_id: consumerId, action })
+        body: JSON.stringify({ Buyer_id: consumerId, action })
       });
       if (res.ok) {
         fetchBulkRequests();
@@ -528,7 +528,7 @@ export default function ConsumerHome() {
                       <span className="font-bold text-gray-900">₹{item.operating_cost_component || 8.00}/kg</span>
                     </div>
                     <div className="flex justify-between pt-1 border-t border-emerald-200 font-extrabold text-emerald-900 text-sm">
-                      <span>= Total Consumer Price:</span>
+                      <span>= Total Buyer Price:</span>
                       <span>₹{item.hub_price}/kg</span>
                     </div>
                   </div>
@@ -778,13 +778,13 @@ export default function ConsumerHome() {
                         <p><strong>Partial Availability:</strong> {br.confirmed_quantity} {br.unit} is confirmed. {br.remaining_quantity} {br.unit} is still needed.</p>
                         <div className="flex gap-2 shrink-0">
                           <button 
-                            onClick={() => handleConsumerBulkAction(br.id, "ACCEPT_PARTIAL")}
+                            onClick={() => handleBuyerBulkAction(br.id, "ACCEPT_PARTIAL")}
                             className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-3 py-1.5 rounded transition-colors"
                           >
                             Accept Available ({br.confirmed_quantity} {br.unit})
                           </button>
                           <button 
-                            onClick={() => handleConsumerBulkAction(br.id, "CANCEL")}
+                            onClick={() => handleBuyerBulkAction(br.id, "CANCEL")}
                             className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium px-3 py-1.5 rounded transition-colors"
                           >
                             Cancel Request
@@ -798,13 +798,13 @@ export default function ConsumerHome() {
                         <p><strong>100% Fully Confirmed!</strong> All {br.quantity_required} {br.unit} has been aggregated across verified farmers.</p>
                         <div className="flex gap-2 shrink-0">
                           <button 
-                            onClick={() => handleConsumerBulkAction(br.id, "CONVERT_TO_ORDER")}
+                            onClick={() => handleBuyerBulkAction(br.id, "CONVERT_TO_ORDER")}
                             className="bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-2 rounded-lg text-xs shadow transition-colors"
                           >
                             Confirm & Place Order
                           </button>
                           <button 
-                            onClick={() => handleConsumerBulkAction(br.id, "CANCEL")}
+                            onClick={() => handleBuyerBulkAction(br.id, "CANCEL")}
                             className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium px-3 py-1.5 rounded transition-colors"
                           >
                             Cancel

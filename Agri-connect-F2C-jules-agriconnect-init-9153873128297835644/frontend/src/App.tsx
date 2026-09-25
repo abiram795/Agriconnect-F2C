@@ -12,6 +12,18 @@ import DeliveryRegister from "./pages/DeliveryRegister";
 import ConsumerRegister from "./pages/ConsumerRegister";
 import HubDashboard from "./pages/HubDashboard";
 
+// New Pages for SIH26132
+import UnifiedLogin from "./pages/UnifiedLogin";
+import FarmerPriceDiscovery from "./pages/FarmerPriceDiscovery";
+import FarmerBuyers from "./pages/FarmerBuyers";
+import Marketplace from "./pages/Marketplace";
+import LogisticsManagement from "./pages/LogisticsManagement";
+import NetProfitCalculator from "./pages/NetProfitCalculator";
+import AIAssistant from "./pages/AIAssistant";
+import Transactions from "./pages/Transactions";
+import FarmerListings from "./pages/FarmerListings";
+import OrdersList from "./pages/OrdersList";
+
 function App() {
   return (
     <BrowserRouter>
@@ -32,6 +44,21 @@ function App() {
         <Route path="/delivery" element={<DeliveryDashboard />} />
         <Route path="/delivery/dashboard" element={<DeliveryDashboard />} />
         <Route path="/hub/dashboard" element={<HubDashboard />} />
+
+        {/* New Routes for SIH26132 */}
+        <Route path="/login" element={<UnifiedLogin />} />
+        <Route path="/register" element={<UnifiedLogin isRegister={true} />} />
+        <Route path="/farmer/dashboard" element={<FarmerDashboard />} />
+        <Route path="/farmer/listings" element={<FarmerListings />} />
+        <Route path="/farmer/price-discovery" element={<FarmerPriceDiscovery />} />
+        <Route path="/farmer/buyers" element={<FarmerBuyers />} />
+        <Route path="/marketplace" element={<Marketplace />} />
+        <Route path="/buyer/dashboard" element={<ConsumerHome />} />
+        <Route path="/orders" element={<OrdersList />} />
+        <Route path="/logistics" element={<LogisticsManagement />} />
+        <Route path="/transactions" element={<Transactions />} />
+        <Route path="/calculator" element={<NetProfitCalculator />} />
+        <Route path="/assistant" element={<AIAssistant />} />
       </Routes>
     </BrowserRouter>
   );

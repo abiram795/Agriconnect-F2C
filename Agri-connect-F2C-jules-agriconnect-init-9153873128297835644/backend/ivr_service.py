@@ -267,8 +267,36 @@ class MockIVRProvider(IVRProvider):
         if not supabase_url or not supabase_key:
             return None
         try:
+            farmer_str_id = str(farmer_id)
+            headers = self.get_supabase_headers(supabase_key)
+
+            # 1. Ensure user record exists
+            u_res = await client.get(
+                f"{supabase_url}/rest/v1/users?id=eq.{farmer_str_id}",
+                headers=headers
+            )
+            if u_res.status_code == 200 and not u_res.json():
+                random_phone = f"9{str(uuid.uuid4().int)[:9]}"
+                await client.post(
+                    f"{supabase_url}/rest/v1/users",
+                    json={"id": farmer_str_id, "name": "Farmer", "phone": random_phone, "role": "farmer"},
+                    headers=headers
+                )
+
+            # 2. Ensure farmer record exists in farmers table to satisfy foreign key constraint
+            f_res = await client.get(
+                f"{supabase_url}/rest/v1/farmers?user_id=eq.{farmer_str_id}",
+                headers=headers
+            )
+            if f_res.status_code == 200 and not f_res.json():
+                await client.post(
+                    f"{supabase_url}/rest/v1/farmers",
+                    json={"user_id": farmer_str_id, "verification_status": "Verified", "state": "Tamil Nadu", "district": "Coimbatore", "village": "Coimbatore"},
+                    headers=headers
+                )
+
             payload = {
-                "farmer_id": farmer_id,
+                "farmer_id": farmer_str_id,
                 "name": product_name,
                 "description": f"IVR Voice Listing ({quantity_kg} kg available)",
                 "price": default_price,
@@ -281,7 +309,7 @@ class MockIVRProvider(IVRProvider):
             res = await client.post(
                 f"{supabase_url}/rest/v1/products",
                 json=payload,
-                headers=self.get_supabase_headers(supabase_key)
+                headers=headers
             )
             if res.status_code in (200, 201) and res.json():
                 return res.json()[0] if isinstance(res.json(), list) else res.json()

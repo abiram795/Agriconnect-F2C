@@ -939,6 +939,8 @@ class IVRInteractiveRequest(BaseModel):
     state: str = "MAIN_MENU"
     language: str = "Tamil"
     category: Optional[str] = None
+    product_name: Optional[str] = None
+    quantity_kg: Optional[float] = None
 
 @app.get("/api/ivr/farmer/{farmer_id}/access")
 async def get_farmer_ivr_access(
@@ -1060,6 +1062,8 @@ async def interactive_ivr_menu(req: IVRInteractiveRequest):
         State=req.state,
         Language=req.language,
         SelectedCategory=req.category,
+        SelectedProduct=req.product_name,
+        QuantityKg=req.quantity_kg,
         FarmerId=req.farmer_id
     )
     return await provider.process_call(webhook_req, supabase_url, supabase_key)

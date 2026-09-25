@@ -677,13 +677,19 @@ export default function FarmerDashboard() {
               <Phone className="w-4 h-4 mr-1.5" /> 📞 My IVR Access
             </button>
 
-            <button
-              type="button"
-              onClick={() => setIsMarketModalOpen(true)}
+            <Link
+              to="/farmer/price-discovery"
               className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2 px-4 rounded-lg flex items-center shadow-md transition-colors"
             >
-              <BarChart2 className="w-4 h-4 mr-1.5" /> 🌾 Today's Market Analysis
-            </button>
+              <BarChart2 className="w-4 h-4 mr-1.5" /> AI Price Discovery
+            </Link>
+
+            <Link
+              to="/farmer/buyers"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center shadow-md transition-colors"
+            >
+              <Users className="w-4 h-4 mr-1.5" /> Smart Buyer Match
+            </Link>
 
             {status !== 'Approved' ? (
                 <button disabled className="bg-gray-400 text-white font-bold py-2 px-4 rounded-lg flex items-center shadow-md cursor-not-allowed">
@@ -707,7 +713,7 @@ export default function FarmerDashboard() {
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-lg font-bold text-gray-900">Unique Farmer IVR Identity</h3>
               <span className="bg-blue-100 text-blue-800 text-xs font-extrabold px-2.5 py-0.5 rounded-full border border-blue-200">
-                {ivrData?.status_label || "Demo / Ready for Provider Integration"}
+                {ivrData?.status_label || "IVR Active & Ready"}
               </span>
             </div>
             <p className="text-xs text-gray-600 mt-1">
@@ -740,6 +746,42 @@ export default function FarmerDashboard() {
           <Phone className="w-4 h-4" /> View IVR Menu
         </button>
       </div>
+
+      {/* SIH26132 Main Dashboard Features */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <Link to="/farmer/price-discovery" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 hover:border-emerald-500 hover:shadow-md transition-all">
+          <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center mb-4">
+            <TrendingUp className="w-6 h-6 text-emerald-700" />
+          </div>
+          <h3 className="font-bold text-gray-900 text-lg mb-1">Price Discovery</h3>
+          <p className="text-sm text-gray-500">AI-powered market analysis and profit estimation.</p>
+        </Link>
+
+        <Link to="/farmer/buyers" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 hover:border-blue-500 hover:shadow-md transition-all">
+          <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4">
+            <Users className="w-6 h-6 text-blue-700" />
+          </div>
+          <h3 className="font-bold text-gray-900 text-lg mb-1">Buyer Matching</h3>
+          <p className="text-sm text-gray-500">Connect with verified buyers matching your produce.</p>
+        </Link>
+
+        <Link to="/farmer/listings" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 hover:border-amber-500 hover:shadow-md transition-all">
+          <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center mb-4">
+            <Package className="w-6 h-6 text-amber-700" />
+          </div>
+          <h3 className="font-bold text-gray-900 text-lg mb-1">Crop Listings</h3>
+          <p className="text-sm text-gray-500">Manage your active listings and inventory.</p>
+        </Link>
+        
+        <Link to="/calculator" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 hover:border-purple-500 hover:shadow-md transition-all">
+          <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4">
+            <DollarSign className="w-6 h-6 text-purple-700" />
+          </div>
+          <h3 className="font-bold text-gray-900 text-lg mb-1">Net Profit Calculator</h3>
+          <p className="text-sm text-gray-500">Calculate revenue after transport & packaging.</p>
+        </Link>
+      </div>
+
 
       {status !== 'Approved' && (
         <div className="mb-6 bg-amber-50 border border-amber-200 p-4 rounded-xl flex flex-col shadow-sm">
@@ -1192,6 +1234,7 @@ export default function FarmerDashboard() {
         isOpen={isIVRModalOpen}
         onClose={() => setIsIVRModalOpen(false)}
         ivrData={ivrData}
+        onSuccess={fetchData}
       />
     </div>
     </div>

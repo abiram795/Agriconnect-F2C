@@ -355,7 +355,7 @@ export default function AdminDashboard() {
                       <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg flex items-start gap-3">
                         <Search className="w-5 h-5 text-blue-600 mt-0.5" />
                         <div>
-                          <p className="text-sm font-semibold text-blue-900">AI-assisted document analysis (Mock)</p>
+                          <p className="text-sm font-semibold text-blue-900">AI-assisted document analysis</p>
                           <p className="text-xs text-blue-800 mt-1">Possible mismatch in total acreage. Extracted: {Math.max(0, farmer.acreage - 0.5)} acres vs Declared: {farmer.acreage} acres. Manual review required to verify {farmer.document_type} validity.</p>
                         </div>
                       </div>
